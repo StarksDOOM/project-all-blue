@@ -1,4 +1,6 @@
 import {
+  ContractRecord,
+  InitializeContractPayload,
   PaginatedPropertiesResponse,
   PropertiesQueryParams,
   PropertyListing,
@@ -103,6 +105,25 @@ function buildPropertiesUrl(params: PropertiesQueryParams): string {
   return `${BASE_URL}/api/v1/properties${query ? `?${query}` : ""}`;
 }
 
+function resolvePropertyId(propertyId: string | number): string {
+  return String(propertyId);
+}
+
+async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = await response.json();
+    if (typeof body.detail === "string") {
+      return body.detail;
+    }
+    if (Array.isArray(body.detail)) {
+      return body.detail.map((item: { msg?: string }) => item.msg ?? "Validation error").join(", ");
+    }
+  } catch {
+    // ignore JSON parse failures
+  }
+  return fallback;
+}
+
 export const api = {
   getPropertiesPage: async (
     params: PropertiesQueryParams = {}
@@ -123,5 +144,51 @@ export const api = {
       metadata: result.metadata,
       data: result.data.map(mapPropertyListing),
     };
+  },
+
+  initializeContract: async (
+    propertyId: string | number,
+    payload: InitializeContractPayload
+  ): Promise<ContractRecord> => {
+    const resolvedId = resolvePropertyId(propertyId);
+    const response = await fetch(
+      `${BASE_URL}/api/v1/contracts/initialize/${encodeURIComponent(resolvedId)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Contract initialization failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+
+    return response.json();
+  },
+
+  getContract: async (contractId: string): Promise<ContractRecord> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/contracts/${encodeURIComponent(contractId)}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Failed to fetch contract: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+
+    return response.json();
   },
 };

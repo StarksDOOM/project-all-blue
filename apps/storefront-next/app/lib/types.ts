@@ -59,3 +59,36 @@ export interface PaginatedPropertiesResponse {
 }
 
 export type BusinessTypeFilter = "" | "alquiler" | "venta";
+
+export type ContractType = "RENTAL" | "PURCHASE_RESERVATION" | "MANAGEMENT";
+export type ContractStatus = "DRAFT" | "SIGNED" | "ESCROW_HOLD" | "COMPLETED";
+
+export interface InitializeContractPayload {
+  buyer_name: string;
+  buyer_id: string;
+  seller_name: string;
+  seller_id: string;
+}
+
+export interface ContractRecord {
+  id: string;
+  contract_number: string;
+  property_id: string;
+  property_remote_id: string;
+  property_title: string;
+  business_type: string;
+  contract_type: ContractType;
+  status: ContractStatus;
+  client_name: string;
+  client_rnc_or_cedula: string;
+  buyer_name: string;
+  buyer_id: string;
+  seller_name: string;
+  seller_id: string;
+  total_value_usd: number;
+  earnest_deposit_usd: number;
+  execution_date: string;
+  document_body: string;
+  last_modified: number;
+  server_version: number;
+}
