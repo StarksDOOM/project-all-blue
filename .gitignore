@@ -36,4 +36,6 @@ Thumbs.db
 *.properties.tsx
 *.properties.ts
 **/__init__.sync.py
+requirements.foundation.txt
+requirements.sync.txt
 scripts/git-milestone-commits.ps1
