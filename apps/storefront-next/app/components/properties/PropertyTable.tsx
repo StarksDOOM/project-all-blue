@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -194,13 +195,21 @@ export function PropertyTable({
                     <td className="p-4 text-slate-700">{property.sector}</td>
                     <td className="p-4 capitalize text-slate-700">{property.business_type}</td>
                     <td className="p-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onSelectProperty(property)}
-                        className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline"
-                      >
-                        Generate Contract
-                      </button>
+                      <div className="flex flex-col items-end gap-2">
+                        <Link
+                          href={`/properties/${property.remote_id}`}
+                          className="text-sm font-medium text-slate-700 underline-offset-2 hover:underline"
+                        >
+                          Ver detalle
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => onSelectProperty(property)}
+                          className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline"
+                        >
+                          Generate Contract
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

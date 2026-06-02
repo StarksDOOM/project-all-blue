@@ -1,7 +1,8 @@
 """
 Property listing HTTP routes.
 
-GET  /api/v1/properties        — paginated inventory for storefront
+GET  /api/v1/properties              — paginated inventory for storefront
+GET  /api/v1/properties/{property_id}  — single property (id or remote_id)
 POST /api/v1/properties/trigger-crawl — queue OOP ingestion (202 Accepted)
 """
 
@@ -11,6 +12,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import or_
 from sqlmodel import Session, func, select
 
 from database import get_db_session
@@ -20,6 +22,50 @@ from scrapers.drivers.realtor import RealtorDriver
 from services.sync_service import IngestionOrchestrator
 
 router = APIRouter(prefix="/api/v1/properties", tags=["properties"])
+
+
+def _resolve_property_asset(session: Session, property_id: str) -> PropertyListing:
+    """
+    Resolve a property by internal primary key or portal remote_id.
+
+    Lookup order (non-deleted rows only):
+      1. ``id`` — Blu string PK (e.g. ``#BLU-A1B2C3D4``)
+      2. ``remote_id`` — portal-native id (e.g. ``222574``); numeric path segments use this
+    """
+    key = str(property_id).strip()
+    if not key:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property asset not found",
+        )
+
+    listing = session.exec(
+        select(PropertyListing).where(
+            PropertyListing.deleted_at == None,
+            or_(PropertyListing.id == key, PropertyListing.remote_id == key),
+        )
+    ).first()
+
+    if listing is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property asset not found",
+        )
+
+    return listing
+
+
+@router.get("/{property_id}")
+def get_property_detail(
+    property_id: str,
+    session: Session = Depends(get_db_session),
+) -> PropertyListing:
+    """
+    Return one non-deleted PropertyListing row with full field payload (no truncation).
+
+    Accepts internal ``id`` (Blu string PK, e.g. #BLU-…) or portal ``remote_id`` (e.g. 222574).
+    """
+    return _resolve_property_asset(session, property_id)
 
 
 @router.get("")

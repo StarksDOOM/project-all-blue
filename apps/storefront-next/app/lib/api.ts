@@ -68,21 +68,60 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
 
   return {
     id: Number.isFinite(numericId) ? numericId : 0,
+    blu_id: row.id,
     remote_id: row.remote_id,
     title: row.title,
     price_raw,
     currency,
     price_usd: row.price_usd,
+    price_dop: row.price_dop ?? null,
     sector: row.sector,
+    province: row.province,
     business_type: parseBusinessType(row.raw_description, row.title),
     beds: toNullableMetric(row.bedrooms),
     baths: toNullableMetric(row.bathrooms),
     area_mt2: toNullableMetric(row.square_meters),
+    raw_description: row.raw_description,
     url: row.url,
     source_portal: row.source_portal,
     is_active: row.is_active,
     scraped_at: new Date(row.last_modified).toISOString(),
   };
+}
+
+/**
+ * Fetch a single property by internal Blu id or portal remote_id.
+ */
+export async function getPropertyDetail(id: string | number): Promise<PropertyListing> {
+  const resolvedId = encodeURIComponent(String(id).trim());
+  const url = `${BASE_URL}/api/v1/properties/${resolvedId}`;
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Failed to fetch property detail: ${response.status} ${response.statusText}`
+      );
+      console.error("[getPropertyDetail]", { id, status: response.status, message, url });
+      throw new Error(message);
+    }
+
+    const row: PropertyListingApiRow = await response.json();
+    return mapPropertyListing(row);
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error("[getPropertyDetail] request failed", { id, message: error.message, url });
+      throw error;
+    }
+    console.error("[getPropertyDetail] unknown failure", { id, url });
+    throw new Error("Failed to fetch property detail due to an unexpected error.");
+  }
 }
 
 function buildPropertiesUrl(params: PropertiesQueryParams): string {

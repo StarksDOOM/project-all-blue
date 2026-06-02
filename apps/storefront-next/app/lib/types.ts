@@ -1,16 +1,22 @@
 /** Normalized listing shape used across the storefront UI. */
 export interface PropertyListing {
+  /** Numeric convenience id (parsed from remote_id when possible). */
   id: number;
+  /** Internal database primary key (Blu id, e.g. #BLU-A1B2C3D4). */
+  blu_id: string;
   remote_id: string;
   title: string;
   price_raw: number;
   currency: string;
   price_usd: number;
+  price_dop: number | null;
   sector: string;
+  province: string;
   business_type: string;
   beds: number | null;
   baths: number | null;
   area_mt2: number | null;
+  raw_description: string;
   url: string;
   source_portal: string;
   is_active: boolean;
