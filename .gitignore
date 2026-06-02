@@ -1,0 +1,39 @@
+# Secrets and local env
+apps/api-fastapi/.env
+apps/storefront-next/.env.local
+apps/storefront-next_old/
+
+# Python
+apps/api-fastapi/.venv/
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node / Next.js
+apps/storefront-next/node_modules/
+apps/storefront-next/.next/
+apps/storefront-next/out/
+*.tsbuildinfo
+
+# Legacy and agent workspace (excluded from product repo)
+.openclaw/
+AGENTS.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git staging artifacts (local only)
+*.foundation.py
+*.sync.py
+*.full.py
+*.scaffold.tsx
+*.properties.tsx
+*.properties.ts
+**/__init__.sync.py
+scripts/git-milestone-commits.ps1
