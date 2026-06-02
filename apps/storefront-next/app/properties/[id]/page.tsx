@@ -151,7 +151,9 @@ export default function PropertyDetailPage() {
                     {property.title}
                   </h1>
                   {property.is_active ? (
-                    <Badge variant="success">Disponible</Badge>
+                    <Badge className="border-transparent bg-emerald-600 text-white hover:bg-emerald-600/90">
+                      Disponible
+                    </Badge>
                   ) : (
                     <Badge variant="outline">No disponible</Badge>
                   )}
