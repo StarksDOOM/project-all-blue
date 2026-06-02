@@ -7,6 +7,7 @@ from sqlmodel import Session, func, select
 
 from database import get_db_session, init_db
 from models import PropertyListing
+from routers.contracts import router as contracts_router
 from services.sync_service import execute_portal_sync_background
 
 SUPPORTED_CRAWL_PORTALS = {"remaxrd", "realtor"}
@@ -32,6 +33,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(contracts_router)
 
 
 @app.get("/api/v1/properties", response_model=dict)
