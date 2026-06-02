@@ -1,0 +1,19 @@
+# Code-review-graph exclusions (token + noise reduction)
+# Syntax matches .gitignore
+
+apps/storefront-next/node_modules/**
+apps/storefront-next/.next/**
+apps/storefront-next/out/**
+apps/api-fastapi/.venv/**
+apps/storefront-next_old/**
+**/__pycache__/**
+*.pyc
+*.pyo
+**/.pytest_cache/**
+**/*.tsbuildinfo
+
+# Milestone / snapshot files (not product code)
+**/*.foundation.py
+**/*.sync.py
+**/*.full.py
+**/*.scaffold.tsx

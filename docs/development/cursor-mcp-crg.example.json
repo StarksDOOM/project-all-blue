@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "command": "code-review-graph",
+      "args": [
+        "serve",
+        "--repo",
+        "REPLACE_WITH_REPO_ROOT",
+        "--tools",
+        "get_minimal_context_tool,detect_changes_tool,get_impact_radius_tool,get_review_context_tool,query_graph_tool"
+      ],
+      "type": "stdio"
+    }
+  }
+}
