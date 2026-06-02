@@ -24,6 +24,12 @@ SOUL.md
 TOOLS.md
 USER.md
 
+# Code-review-graph local index (developer machine only)
+.code-review-graph/
+
+# Cursor MCP (machine-specific paths; copy from docs/development/cursor-mcp-crg.example.json)
+.cursor/
+
 # OS
 .DS_Store
 Thumbs.db

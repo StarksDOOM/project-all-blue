@@ -1,3 +1,11 @@
+"""
+SQLModel entities for All Blue Core (real_estate schema).
+
+Ingestion-related tables:
+  - PropertyListing — normalized portal inventory (upsert key: source_portal + remote_id)
+  - IngestionSyncJob — per-crawl lifecycle and metrics
+"""
+
 from datetime import datetime
 from enum import Enum
 from typing import Optional
@@ -14,6 +22,15 @@ class ContractStatus(str, Enum):
     SIGNED = "SIGNED"
     ESCROW_HOLD = "ESCROW_HOLD"
     COMPLETED = "COMPLETED"
+
+
+class SyncJobStatus(str, Enum):
+    """Ingestion job lifecycle tracked by IngestionOrchestrator."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
 
 class AllBlueBaseModel(SQLModel):
     """Core synchronization and multi-tenant primitives for downstream pipelines."""
@@ -36,22 +53,43 @@ class AllBlueBaseModel(SQLModel):
     deleted_at: Optional[datetime] = Field(default=None, nullable=True)
     
 class PropertyListing(AllBlueBaseModel, table=True):
+    """
+    Normalized listing row produced by portal drivers (RemaxRdDriver, etc.).
+
+    Persisted exclusively via IngestionOrchestrator bulk upsert.
+    """
+
     __tablename__ = "properties"
     __table_args__ = {"schema": "real_estate"}
 
-    remote_id: str = Field(index=True)
-    source_portal: str = Field(index=True)  # e.g., 'remaxrd', 'realtor'
-    url: str
-    title: str
-    price_usd: float
-    price_dop: Optional[float] = Field(default=None, nullable=True)
-    province: str
-    sector: str = Field(index=True)
+    remote_id: str = Field(index=True)  # Portal-native id; upsert conflict key (with source_portal)
+    source_portal: str = Field(index=True)  # Driver token: remaxrd, realtor, ...
+    url: str  # Canonical property URL on portal site
+    title: str  # Display title for storefront / contracts
+    price_usd: float  # Required USD amount (derived when portal lists DOP)
+    price_dop: Optional[float] = Field(default=None, nullable=True)  # Optional DOP mirror
+    province: str  # City / province label
+    sector: str = Field(index=True)  # Neighborhood — filtered in GET /properties
     bedrooms: int
-    bathrooms: float
+    bathrooms: float  # Full + 0.5 * half baths (see scrapers.utils.normalization)
     square_meters: float
-    raw_description: str
-    is_active: bool = Field(default=True)
+    raw_description: str  # Compact summary for search and contract templates
+    is_active: bool = Field(default=True)  # RE/MAX: status == disponible
+
+
+class IngestionSyncJob(AllBlueBaseModel, table=True):
+    """One row per crawl execution; metrics filled when status reaches COMPLETED."""
+
+    __tablename__ = "ingestion_sync_jobs"
+    __table_args__ = {"schema": "real_estate"}
+
+    source_portal: str = Field(index=True)  # Portal that was crawled
+    status: SyncJobStatus = Field(default=SyncJobStatus.PENDING, index=True)
+    fetched: int = Field(default=0)  # Rows returned by driver.run_sync()
+    inserted: int = Field(default=0)  # New (source_portal, remote_id) rows in upsert
+    updated: int = Field(default=0)  # Existing rows refreshed on conflict
+    error_message: Optional[str] = Field(default=None, nullable=True)  # Set when status=FAILED
+
 
 class SRLContract(AllBlueBaseModel, table=True):
     __tablename__ = "srl_contracts"
