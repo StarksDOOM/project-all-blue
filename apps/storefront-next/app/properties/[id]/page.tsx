@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPropertyDetail } from "@/lib/api";
+import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
 import { PropertyListing } from "@/lib/types";
 
 function formatBaths(value: number | null): string {
@@ -42,20 +43,7 @@ function formatArea(value: number | null): string {
   return `${value.toLocaleString("en-US")} m²`;
 }
 
-function formatPrimaryPrice(property: PropertyListing): string {
-  if (property.currency === "DOP") {
-    return `RD$${property.price_raw.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
-  }
-  return `$${property.price_raw.toLocaleString("en-US", { maximumFractionDigits: 0 })} USD`;
-}
 
-function formatUsdSecondary(property: PropertyListing): string {
-  const usd =
-    property.currency === "DOP"
-      ? property.price_usd
-      : property.price_raw;
-  return `$${usd.toLocaleString("en-US", { maximumFractionDigits: 0 })} USD`;
-}
 
 
 
@@ -118,12 +106,12 @@ export default function PropertyDetailPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-100 pb-32">
+    <main className="min-h-screen bg-muted/40 pb-32">
       <div className="mx-auto max-w-5xl px-4 py-8 md:px-8">
         <div className="mb-6">
           <Link
             href="/"
-            className="text-sm font-medium text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline"
+            className="text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
           >
             ← Volver al inventario
           </Link>
@@ -151,7 +139,9 @@ export default function PropertyDetailPage() {
                     {property.title}
                   </h1>
                   {property.is_active ? (
-                    <Badge variant="success">Disponible</Badge>
+                    <Badge className="border-transparent bg-emerald-600 text-white hover:bg-emerald-600/90">
+                      Disponible
+                    </Badge>
                   ) : (
                     <Badge variant="outline">No disponible</Badge>
                   )}
@@ -174,13 +164,7 @@ export default function PropertyDetailPage() {
                   <CardTitle className="text-3xl font-bold text-white md:text-4xl">
                     {formatPrimaryPrice(property)}
                   </CardTitle>
-                  {property.currency === "DOP" ? (
-                    <p className="text-base text-slate-300">{formatUsdSecondary(property)}</p>
-                  ) : (
-                    <p className="text-sm text-slate-400">
-                      Referencia en dólares para trámites contractuales
-                    </p>
-                  )}
+                  <p className="text-base text-slate-300">{formatSecondaryPrice(property)}</p>
 
                 </CardHeader>
               </Card>
