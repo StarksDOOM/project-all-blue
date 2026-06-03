@@ -3,37 +3,55 @@ import { PropertyListing } from "./types";
 /** Fallback USD→DOP rate when portal omits `price_dop` (matches ingestion heuristic). */
 export const USD_TO_DOP_RATE = 59.5;
 
+function rentalSuffix(property: PropertyListing): string {
+  return property.business_type === "alquiler" ? " / mes" : "";
+}
+
+function resolveDisplayAmount(property: PropertyListing): number | null {
+  if (property.list_price != null && property.list_price > 0) {
+    return property.list_price;
+  }
+  if (property.price_raw > 0) {
+    return property.price_raw;
+  }
+  return null;
+}
+
 export function formatPrimaryPrice(property: PropertyListing): string {
-  if (property.currency === "DOP") {
-    return `RD$${property.price_raw.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  const amount = resolveDisplayAmount(property);
+  if (amount == null || amount <= 0) {
+    return "Precio no disponible";
   }
-  return `$${property.price_raw.toLocaleString("en-US", { maximumFractionDigits: 0 })} USD`;
+  if (property.currency === "DOP") {
+    return `RD$${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })}${rentalSuffix(property)}`;
+  }
+  return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 0 })} USD${rentalSuffix(property)}`;
 }
 
-export function resolveDopAmount(property: PropertyListing): number {
-  if (property.price_dop != null && property.price_dop > 0) {
-    return property.price_dop;
-  }
-  const usdBase = property.currency === "USD" ? property.price_raw : property.price_usd;
-  return usdBase * USD_TO_DOP_RATE;
+export function hasPortalListPrice(property: PropertyListing): boolean {
+  const amount = resolveDisplayAmount(property);
+  return amount != null && amount > 0;
 }
 
-export function resolveUsdAmount(property: PropertyListing): number {
-  if (property.currency === "DOP") {
-    return property.price_usd;
+/** Secondary line only when portal provided an explicit mirror on the API row. */
+export function formatSecondaryPrice(property: PropertyListing): string | null {
+  if (!hasPortalListPrice(property)) {
+    return null;
   }
-  return property.price_raw;
-}
-
-/** Secondary line under primary: DOP listings → USD; USD listings → RD$. */
-export function formatSecondaryPrice(property: PropertyListing): string {
+  const suffix = rentalSuffix(property);
   if (property.currency === "DOP") {
-    return `≈ $${resolveUsdAmount(property).toLocaleString("en-US", {
+    if (property.price_usd == null || property.price_usd <= 0) {
+      return null;
+    }
+    return `≈ $${property.price_usd.toLocaleString("en-US", {
       maximumFractionDigits: 0,
-    })} USD`;
+    })} USD${suffix}`;
   }
-  return `≈ RD$${resolveDopAmount(property).toLocaleString("en-US", {
+  if (property.price_dop == null || property.price_dop <= 0) {
+    return null;
+  }
+  return `≈ RD$${property.price_dop.toLocaleString("en-US", {
     maximumFractionDigits: 0,
-  })}`;
+  })}${suffix}`;
 }
 

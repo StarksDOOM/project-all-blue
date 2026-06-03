@@ -6,34 +6,73 @@ import {
   PropertyListing,
   PropertyListingApiRow,
 } from "./types";
+import { ensureRemaxPortalUrl } from "./portal-url";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-function parseCurrency(
-  rawDescription: string,
-  priceUsd: number,
-  priceDop?: number | null
-): { currency: string; price_raw: number } {
-  const currencyMatch = rawDescription.match(/currency=([A-Z]{3})/i);
-  if (currencyMatch) {
-    const currency = currencyMatch[1].toUpperCase();
-    if (currency === "DOP") {
-      return {
-        currency: "DOP",
-        price_raw: priceDop ?? priceUsd * 59.5,
-      };
+/** Portal list currency from enriched raw_description (not the derived DOP mirror). */
+function parseCurrencyFromMeta(rawDescription: string): string | null {
+  const match = rawDescription.match(/currency=([A-Z]{3})/i);
+  return match?.[1]?.toUpperCase() ?? null;
+}
+
+function parseImageUrls(value: PropertyListingApiRow["image_urls"]): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((url) => typeof url === "string" && url.length > 0);
+  }
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((url): url is string => typeof url === "string" && url.length > 0);
+      }
+    } catch {
+      return [];
     }
-    return { currency: "USD", price_raw: priceUsd };
+  }
+  return [];
+}
+
+/**
+ * Portal list price: prefer explicit ``list_price`` (detail enrichment), else the
+ * sync column that matches ``listing_currency`` (price_usd for USD, price_dop for DOP).
+ */
+function resolveListingPrice(row: PropertyListingApiRow): {
+  currency: string;
+  price_raw: number;
+  list_price: number | null;
+} {
+  const currency = (
+    row.listing_currency ||
+    parseCurrencyFromMeta(row.raw_description) ||
+    "USD"
+  ).toUpperCase();
+
+  const explicitList =
+    row.list_price != null && row.list_price > 0 ? row.list_price : null;
+  if (explicitList) {
+    return { currency, price_raw: explicitList, list_price: explicitList };
   }
 
-  if (priceDop != null && priceDop > priceUsd * 10) {
-    return { currency: "DOP", price_raw: priceDop };
+  if (currency === "DOP") {
+    const dop =
+      row.price_dop != null && row.price_dop > 0 ? row.price_dop : null;
+    if (dop) {
+      return { currency: "DOP", price_raw: dop, list_price: dop };
+    }
+  } else if (row.price_usd > 0) {
+    return { currency: "USD", price_raw: row.price_usd, list_price: row.price_usd };
   }
 
-  return { currency: "USD", price_raw: priceUsd };
+  return { currency, price_raw: 0, list_price: null };
 }
 
 function parseBusinessType(rawDescription: string, title: string): string {
+  const typed = rawDescription.match(/business_type=([a-z]+)/i);
+  if (typed?.[1]) {
+    return typed[1].toLowerCase();
+  }
+
   const segments = rawDescription.split("|").map((part) => part.trim().toLowerCase());
   const typeSegment = segments.find(
     (segment) => segment.includes("alquiler") || segment.includes("venta")
@@ -58,11 +97,7 @@ function toNullableMetric(value: number): number | null {
 }
 
 export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing {
-  const { currency, price_raw } = parseCurrency(
-    row.raw_description,
-    row.price_usd,
-    row.price_dop
-  );
+  const { currency, price_raw, list_price } = resolveListingPrice(row);
 
   const numericId = Number.parseInt(row.remote_id, 10);
 
@@ -75,14 +110,23 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
     currency,
     price_usd: row.price_usd,
     price_dop: row.price_dop ?? null,
+    list_price,
+    image_urls: parseImageUrls(row.image_urls),
     sector: row.sector,
     province: row.province,
     business_type: parseBusinessType(row.raw_description, row.title),
     beds: toNullableMetric(row.bedrooms),
     baths: toNullableMetric(row.bathrooms),
     area_mt2: toNullableMetric(row.square_meters),
+    sqm_land: toNullableMetric(row.sqm_land ?? null),
+    agent_name: row.agent_name ?? null,
+    agent_phone: row.agent_phone ?? null,
+    agent_email: row.agent_email ?? null,
+    agent_whatsapp: row.agent_whatsapp ?? null,
+    agent_agency: row.agent_agency ?? null,
     raw_description: row.raw_description,
     url: row.url,
+    portal_url: ensureRemaxPortalUrl(row.url, row.remote_id),
     source_portal: row.source_portal,
     is_active: row.is_active,
     scraped_at: new Date(row.last_modified).toISOString(),
@@ -92,9 +136,16 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
 /**
  * Fetch a single property by internal Blu id or portal remote_id.
  */
-export async function getPropertyDetail(id: string | number): Promise<PropertyListing> {
+export async function getPropertyDetail(
+  id: string | number,
+  options?: { portalUrl?: string }
+): Promise<PropertyListing> {
   const resolvedId = encodeURIComponent(String(id).trim());
-  const url = `${BASE_URL}/api/v1/properties/${resolvedId}`;
+  const search = new URLSearchParams({ refresh_from_portal: "true" });
+  if (options?.portalUrl) {
+    search.set("portal_url", options.portalUrl);
+  }
+  const url = `${BASE_URL}/api/v1/properties/${resolvedId}?${search.toString()}`;
 
   try {
     const response = await fetch(url, {

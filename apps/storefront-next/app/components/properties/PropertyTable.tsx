@@ -208,9 +208,11 @@ export function PropertyTable({
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{formatPrimaryPrice(property)}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatSecondaryPrice(property)}
-                      </div>
+                      {formatSecondaryPrice(property) ? (
+                        <div className="text-xs text-muted-foreground">
+                          {formatSecondaryPrice(property)}
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>{property.sector}</TableCell>
                     <TableCell>
