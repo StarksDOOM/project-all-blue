@@ -26,12 +26,22 @@ Restart Cursor after `install`.
 ```powershell
 cd C:\Users\Leo Fulgencio\Projects\project-all-blue
 
-# First time or after large refactors
-code-review-graph build
+# First time or after large refactors / branch switch (Agents run this without asking)
+C:\Python313\python.exe -m code_review_graph build
 
-# Day to day (changed files only)
-code-review-graph update
+# Day to day (changed files only) — run before every MCP review
+C:\Python313\python.exe -m code_review_graph update
 ```
+
+### Agent autonomy (required)
+
+Agents MUST refresh CRG **without prompting the user**:
+
+1. `update` before any MCP tool or `detect-changes --brief`.
+2. `build` when `status` shows a different branch than current, after rebase/merge, or when the index is missing.
+3. `update` again after substantive edits under `apps/` or `.spec-kit/` in the same session.
+
+Canonical rules also live in `Agents.md` (gitignored locally; mirror from this doc when syncing).
 
 Optional background freshness (Cursor has no hooks):
 

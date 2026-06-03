@@ -10,6 +10,8 @@ Applies to `apps/api-fastapi/`, `apps/storefront-next/`, `.spec-kit/`, and `docs
 
 **Agent duty:** Before large refactors or cross-module reviews, use CRG MCP tools (or `code-review-graph detect-changes --brief`) and read only impacted files. Physical verification still requires tests and `.spec-kit/` specs.
 
+**Autonomous refresh (no user prompt):** The agent MUST refresh the graph before relying on it—run `C:\Python313\python.exe -m code_review_graph update` from the repo root on each session or before MCP/detect-changes; run `build` when `status` reports a branch mismatch, after rebase/merge, or when the index is missing/stale. Do not ask permission to update/build. See `Agents.md` § Code-review-graph.
+
 ## Graphify upgrade (suggest only when requirements are met)
 
 Graphify (`graphifyy` on PyPI) is **richer and higher-token** than CRG. Do **not** install or migrate by default.
