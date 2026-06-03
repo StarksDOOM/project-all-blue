@@ -20,6 +20,7 @@ from sqlmodel import Session
 from models import PropertyListing
 from scrapers.credential_harvester import HarvestedCredentials, RemaxCredentialHarvester
 from scrapers.drivers.base_driver import BaseDriver
+from scrapers.remax_detail_scraper import build_remax_portal_url
 from scrapers.utils.normalization import (
     CHROME_USER_AGENT,
     combine_bathrooms,
@@ -212,10 +213,15 @@ class RemaxRdDriver(BaseDriver):
             return None
 
         slug = item.get("slug") or str(remote_id)
-        property_url = f"{REMAX_WEB_BASE}/{slug}"
+        property_url = build_remax_portal_url(
+            str(slug),
+            str(item.get("city") or ""),
+            remote_id=str(remote_id),
+        )
 
         currency_block = item.get("currency") or {}
         currency_iso = str(currency_block.get("iso", "USD")).upper()
+        portal_price = safe_float(item.get("price"), default=0.0)
         price_usd, price_dop = resolve_prices_usd_dop(item.get("price"), currency_iso)
 
         city = title_case_label(item.get("city"), "Santo Domingo")
@@ -232,15 +238,21 @@ class RemaxRdDriver(BaseDriver):
         # Prefer construction sqm; use land when built area is zero.
         square_meters = sqm_construction if sqm_construction > 0 else sqm_land
 
-        title = f"{realstate_type} en {sector}"
-        if business_type:
-            title = f"{realstate_type} ({business_type}) en {sector}"
+        portal_name = str(item.get("name") or item.get("property_title") or "").strip()
+        if portal_name:
+            title = portal_name
+        else:
+            title = f"{realstate_type} en {sector}"
+            if business_type:
+                title = f"{realstate_type} ({business_type}) en {sector}"
 
         return PropertyListing(
             remote_id=str(remote_id),
             source_portal=self.source_portal,
             url=property_url,
             title=title,
+            list_price=portal_price if portal_price > 0 else None,
+            listing_currency=currency_iso,
             price_usd=price_usd,
             price_dop=price_dop,
             province=city,

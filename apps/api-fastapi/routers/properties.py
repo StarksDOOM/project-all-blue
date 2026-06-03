@@ -19,6 +19,11 @@ from database import get_db_session
 from models import PropertyListing
 from scrapers.driver_factory import DriverFactory
 from scrapers.drivers.realtor import RealtorDriver
+from services.remax_detail_enrichment import (
+    REMAX_PORTAL,
+    enrich_remax_listing,
+    import_remax_listing_from_portal,
+)
 from services.sync_service import IngestionOrchestrator
 
 router = APIRouter(prefix="/api/v1/properties", tags=["properties"])
@@ -59,13 +64,57 @@ def _resolve_property_asset(session: Session, property_id: str) -> PropertyListi
 def get_property_detail(
     property_id: str,
     session: Session = Depends(get_db_session),
+    refresh_from_portal: bool = Query(
+        True,
+        description="Re-scrape listing.url for RE/MAX rows before returning (portal ground truth)",
+    ),
+    portal_url: Optional[str] = Query(
+        None,
+        description="Canonical RE/MAX listing URL (e.g. Spanish slug + ?city=) when DB row is missing or stale",
+    ),
 ) -> PropertyListing:
     """
     Return one non-deleted PropertyListing row with full field payload (no truncation).
 
     Accepts internal ``id`` (Blu string PK, e.g. #BLU-…) or portal ``remote_id`` (e.g. 222574).
+
+    For ``remaxrd``, when ``refresh_from_portal=true`` (default), the handler re-scrapes
+    the portal URL and persists enriched fields. If the row is missing but ``remote_id`` is
+    numeric, it is imported live from RE/MAX (optional ``portal_url`` overrides discovery).
     """
-    return _resolve_property_asset(session, property_id)
+    key = str(property_id).strip()
+    listing: PropertyListing | None = None
+
+    try:
+        listing = _resolve_property_asset(session, property_id)
+    except HTTPException as exc:
+        if exc.status_code != status.HTTP_404_NOT_FOUND or not key.isdigit():
+            raise
+        listing = import_remax_listing_from_portal(
+            session,
+            key,
+            portal_url=portal_url,
+        )
+        return listing
+
+    if refresh_from_portal and listing.source_portal == REMAX_PORTAL:
+        try:
+            listing = enrich_remax_listing(
+                session,
+                listing,
+                persist=True,
+                portal_url=portal_url,
+            )
+        except Exception as exc:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Portal refresh failed remote_id=%s: %s",
+                listing.remote_id,
+                exc,
+            )
+            session.refresh(listing)
+    return listing
 
 
 @router.get("")

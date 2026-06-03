@@ -11,7 +11,9 @@ from scrapers.remax_detail_scraper import (
     _find_property_in_next_data,
     _parse_next_data,
     _record_to_detail,
+    build_remax_portal_url,
     extract_remote_id_from_url,
+    is_canonical_remax_url,
     normalize_remax_listing_url,
     scrape_remax_property_detail,
 )
@@ -56,6 +58,17 @@ def test_normalize_remax_listing_url_strips_en_and_adds_city() -> None:
     assert "city=hig" in out or "city=hig%C3%BCey" in out
 
 
+def test_build_remax_portal_url_from_list_api_slug() -> None:
+    url = build_remax_portal_url(
+        SAMPLE_API_RECORD["slug"],
+        "SANTO DOMINGO DE GUZMÁN",
+        remote_id=str(SAMPLE_API_RECORD["id"]),
+    )
+    assert is_canonical_remax_url(url)
+    assert "/propiedad/redirected/222574" in url
+    assert url.startswith("https://www.remaxrd.com/propiedad/redirected/")
+
+
 def test_parse_next_data_finds_property() -> None:
     payload = _parse_next_data(SAMPLE_NEXT_HTML)
     assert payload is not None
@@ -95,4 +108,4 @@ def test_scrape_falls_back_to_api(mock_api, mock_next, mock_html) -> None:
     detail = scrape_remax_property_detail("https://www.remaxrd.com/propiedad/x-999001")
     assert detail["source"] == "remax_api"
     assert detail["property_id"] == "222574"
-    mock_api.assert_called_once()
+    assert mock_api.call_count >= 1

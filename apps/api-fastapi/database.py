@@ -47,6 +47,15 @@ def ensure_ingestion_schema() -> None:
         CREATE UNIQUE INDEX IF NOT EXISTS uq_properties_source_portal_remote_id
         ON real_estate.properties (source_portal, remote_id)
         """,
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS sqm_land DOUBLE PRECISION",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS listing_currency VARCHAR DEFAULT 'USD'",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_name VARCHAR",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_phone VARCHAR",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_email VARCHAR",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_whatsapp VARCHAR",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_agency VARCHAR",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS image_urls JSONB",
     ]
     with engine.connect() as connection:
         for statement in statements:

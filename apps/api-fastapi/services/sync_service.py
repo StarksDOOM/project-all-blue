@@ -24,6 +24,7 @@ from database import engine, get_current_timestamp_ms, init_db
 from models import IngestionSyncJob, PropertyListing, SyncJobStatus
 from scrapers.drivers.base_driver import BaseDriver
 from scrapers.driver_factory import DriverFactory
+from services.remax_detail_enrichment import enrich_remax_listings_batch
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,20 @@ _UPSERT_UPDATE_COLUMNS = (
     "title",
     "price_usd",
     "price_dop",
+    "list_price",
+    "image_urls",
     "province",
     "sector",
     "bedrooms",
     "bathrooms",
     "square_meters",
+    "sqm_land",
+    "listing_currency",
+    "agent_name",
+    "agent_phone",
+    "agent_email",
+    "agent_whatsapp",
+    "agent_agency",
     "raw_description",
     "is_active",
     "last_modified",
@@ -167,11 +177,23 @@ class IngestionOrchestrator:
         await driver.initialize()
         listings = await driver.run_sync()
         metrics = self._bulk_upsert_chunks(listings)
+        portal = getattr(driver, "source_portal", "unknown")
+        enrich_metrics: dict[str, int] = {"attempted": 0, "enriched": 0, "failed": 0}
+        if portal == "remaxrd" and listings:
+            enrich_metrics = enrich_remax_listings_batch(self._db_session, listings)
+            logger.info(
+                "IngestionOrchestrator: detail enrichment attempted=%s enriched=%s failed=%s",
+                enrich_metrics["attempted"],
+                enrich_metrics["enriched"],
+                enrich_metrics["failed"],
+            )
         return {
-            "source_portal": getattr(driver, "source_portal", "unknown"),
+            "source_portal": portal,
             "fetched": len(listings),
             "inserted": metrics["inserted"],
             "updated": metrics["updated"],
+            "detail_enriched": enrich_metrics.get("enriched", 0),
+            "detail_enrich_failed": enrich_metrics.get("failed", 0),
         }
 
     def _bulk_upsert_chunks(self, listings: list[PropertyListing]) -> dict[str, int]:
@@ -259,11 +281,20 @@ class IngestionOrchestrator:
             "title": listing.title,
             "price_usd": listing.price_usd,
             "price_dop": listing.price_dop,
+            "list_price": listing.list_price,
+            "image_urls": listing.image_urls,
             "province": listing.province,
             "sector": listing.sector,
             "bedrooms": listing.bedrooms,
             "bathrooms": listing.bathrooms,
             "square_meters": listing.square_meters,
+            "sqm_land": listing.sqm_land,
+            "listing_currency": listing.listing_currency or "USD",
+            "agent_name": listing.agent_name,
+            "agent_phone": listing.agent_phone,
+            "agent_email": listing.agent_email,
+            "agent_whatsapp": listing.agent_whatsapp,
+            "agent_agency": listing.agent_agency,
             "raw_description": listing.raw_description,
             "is_active": listing.is_active,
         }

@@ -8,8 +8,10 @@ Ingestion-related tables:
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
-from sqlmodel import SQLModel, Field, Column, String, BigInteger
+from typing import List, Optional
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import SQLModel, Field, String, BigInteger
 from database import generate_blu_id, get_current_timestamp_ms
 
 class ContractType(str, Enum):
@@ -68,11 +70,24 @@ class PropertyListing(AllBlueBaseModel, table=True):
     title: str  # Display title for storefront / contracts
     price_usd: float  # Required USD amount (derived when portal lists DOP)
     price_dop: Optional[float] = Field(default=None, nullable=True)  # Optional DOP mirror
+    list_price: Optional[float] = Field(
+        default=None, nullable=True
+    )  # Exact portal list amount in listing_currency
+    image_urls: Optional[List[str]] = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )  # RE/MAX CDN URLs from detail scrape
     province: str  # City / province label
     sector: str = Field(index=True)  # Neighborhood — filtered in GET /properties
     bedrooms: int
     bathrooms: float  # Full + 0.5 * half baths (see scrapers.utils.normalization)
     square_meters: float
+    sqm_land: Optional[float] = Field(default=None, nullable=True)  # Land area when portal provides it
+    listing_currency: str = Field(default="USD")  # Portal list currency (USD, DOP)
+    agent_name: Optional[str] = Field(default=None, nullable=True)
+    agent_phone: Optional[str] = Field(default=None, nullable=True)
+    agent_email: Optional[str] = Field(default=None, nullable=True)
+    agent_whatsapp: Optional[str] = Field(default=None, nullable=True)
+    agent_agency: Optional[str] = Field(default=None, nullable=True)
     raw_description: str  # Compact summary for search and contract templates
     is_active: bool = Field(default=True)  # RE/MAX: status == disponible
 

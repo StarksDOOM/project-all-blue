@@ -153,6 +153,41 @@ def _city_to_slug(city_label: str | None) -> str | None:
     return slug or None
 
 
+def is_canonical_remax_url(url: str | None) -> bool:
+    """True when URL targets a RE/MAX detail route that loads (redirected/{id})."""
+    return bool(url and "/propiedad/redirected/" in url)
+
+
+def remax_portal_detail_url(remote_id: str, city: str | None = None) -> str:
+    """
+    Public RE/MAX RD detail URL that loads in the browser.
+
+    Slug paths like ``/propiedad/{slug}?city=`` redirect to ``/propiedades`` (2026 site).
+    The storefront uses ``/propiedad/redirected/{remote_id}`` per og:url on live pages.
+    """
+    rid = str(remote_id).strip()
+    base = urlunparse(("https", "www.remaxrd.com", f"/propiedad/redirected/{rid}", "", "", ""))
+    city_slug = _city_to_slug(city)
+    if city_slug:
+        return normalize_remax_listing_url(base, city_slug=city_slug)
+    return base
+
+
+def build_remax_portal_url(
+    slug: str,
+    city: str | None = None,
+    *,
+    remote_id: str | None = None,
+) -> str:
+    """Resolve ``remote_id`` from API slug/path and return the redirected detail URL."""
+    rid = str(remote_id or extract_remote_id_from_url(slug) or "").strip()
+    if not rid:
+        tail = str(slug or "").strip().rstrip("/").split("/")[-1]
+        match = _REMOTE_ID_RE.search(tail)
+        rid = match.group(1) if match else tail
+    return remax_portal_detail_url(rid, city)
+
+
 def _extract_images_from_record(record: dict[str, Any]) -> list[str]:
     images: list[str] = []
     pictures = record.get("pictures") or []
@@ -167,13 +202,17 @@ def _extract_images_from_record(record: dict[str, Any]) -> list[str]:
     return images
 
 
-def _extract_agent_from_record(record: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+def _extract_agent_from_record(
+    record: dict[str, Any],
+) -> tuple[str | None, str | None, str | None, str | None, str | None]:
     agents = record.get("agents") or record.get("agent_list") or []
     if not isinstance(agents, list) or not agents:
-        return None, None, None
+        return None, None, None, None, None
     agent = agents[0] if isinstance(agents[0], dict) else {}
     name = agent.get("name")
     phone = agent.get("mobile") or agent.get("phone") or agent.get("phone2")
+    email = agent.get("email")
+    agency = agent.get("agency_name")
     whatsapp = None
     if phone:
         digits = re.sub(r"\D", "", str(phone))
@@ -182,7 +221,9 @@ def _extract_agent_from_record(record: dict[str, Any]) -> tuple[str | None, str 
     return (
         str(name).strip() if name else None,
         str(phone).strip() if phone else None,
+        str(email).strip() if email else None,
         whatsapp,
+        str(agency).strip() if agency else None,
     )
 
 
@@ -221,7 +262,9 @@ def _record_to_detail(
     if isinstance(description, str):
         description = _strip_html_to_text(description)
 
-    agent_name, agent_phone, whatsapp_api = _extract_agent_from_record(record)
+    agent_name, agent_phone, agent_email, whatsapp_api, agent_agency = _extract_agent_from_record(
+        record
+    )
 
     return {
         "property_id": remote_id,
@@ -232,6 +275,8 @@ def _record_to_detail(
         "image_list": _extract_images_from_record(record),
         "agent_name": agent_name,
         "agent_phone": agent_phone,
+        "agent_email": agent_email,
+        "agent_agency": agent_agency,
         "whatsapp_link": whatsapp_api,
         "description_text": description,
         "source": source,
