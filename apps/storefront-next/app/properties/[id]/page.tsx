@@ -4,8 +4,17 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Bath, BedDouble, ExternalLink, Maximize2, MapPin } from "lucide-react";
+import {
+  Bath,
+  BedDouble,
+  Mail,
+  Maximize2,
+  MapPin,
+  Phone,
+  UserCircle,
+} from "lucide-react";
 import ContractDrawer from "@/components/properties/ContractDrawer";
+import { PropertyImageGallery } from "@/components/properties/PropertyImageGallery";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,8 +26,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PortalOriginalLink } from "@/components/properties/PortalOriginalLink";
 import { getPropertyDetail } from "@/lib/api";
-import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
+import {
+  formatPrimaryPrice,
+  formatSecondaryPrice,
+  hasPortalListPrice,
+} from "@/lib/pricing";
 import { PropertyListing } from "@/lib/types";
 
 function formatBaths(value: number | null): string {
@@ -43,20 +57,44 @@ function formatArea(value: number | null): string {
   return `${value.toLocaleString("en-US")} m²`;
 }
 
+function formatAreaDetail(construction: number | null, land: number | null): string {
+  const parts: string[] = [];
+  if (construction != null && construction > 0) {
+    parts.push(`${construction.toLocaleString("en-US")} m² construcción`);
+  }
+  if (land != null && land > 0) {
+    parts.push(`${land.toLocaleString("en-US")} m² terreno`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
 
 
 
 
-/** Present raw_description with readable line breaks (portal metadata uses pipe segments). */
+
+/** Present portal description; metadata header may be pipe- or newline-separated from enrichment. */
 function formatDescriptionText(raw: string): string {
   if (!raw.trim()) {
     return "Sin descripción disponible para este inmueble.";
   }
-  return raw
-    .split("|")
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .join("\n\n");
+  if (raw.includes("\n\n")) {
+    const [, ...bodyParts] = raw.split("\n\n");
+    const body = bodyParts.join("\n\n").trim();
+    if (body.length > 0) {
+      return body;
+    }
+  }
+  const segments = raw.split("|").map((segment) => segment.trim()).filter(Boolean);
+  if (segments.length <= 1) {
+    return segments[0] ?? raw;
+  }
+  const looksLikeMetadata = segments.every(
+    (segment) =>
+      segment.includes("=") ||
+      segment.length < 80 ||
+      /^(Apartamento|Casa|Venta|Alquiler|Local|Terreno)/i.test(segment)
+  );
+  return looksLikeMetadata ? segments.join("\n") : segments.join("\n\n");
 }
 
 function PropertyDetailSkeleton() {
@@ -104,6 +142,8 @@ export default function PropertyDetailPage() {
     setIsDrawerOpen(false);
     setSelectedProperty(null);
   };
+
+  const secondaryPrice = property ? formatSecondaryPrice(property) : null;
 
   return (
     <main className="min-h-screen bg-muted/40 pb-32">
@@ -158,13 +198,22 @@ export default function PropertyDetailPage() {
                 </div>
               </header>
 
+              <PropertyImageGallery images={property.image_urls} title={property.title} />
+
               <Card className="border-slate-300 bg-slate-950 text-white shadow-md">
                 <CardHeader>
                   <CardDescription className="text-slate-400">Precio</CardDescription>
                   <CardTitle className="text-3xl font-bold text-white md:text-4xl">
                     {formatPrimaryPrice(property)}
                   </CardTitle>
-                  <p className="text-base text-slate-300">{formatSecondaryPrice(property)}</p>
+                  {property.business_type === "alquiler" && hasPortalListPrice(property) ? (
+                    <p className="text-sm font-medium text-emerald-300">Precio de alquiler mensual</p>
+                  ) : null}
+                  {secondaryPrice ? (
+                    <p className="text-sm text-slate-400">
+                      Equivalente en otra moneda · {secondaryPrice}
+                    </p>
+                  ) : null}
 
                 </CardHeader>
               </Card>
@@ -198,12 +247,59 @@ export default function PropertyDetailPage() {
                     <CardTitle className="text-base">Área</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-2xl font-semibold text-slate-900">
-                      {formatArea(property.area_mt2)}
+                    <p className="text-lg font-semibold leading-snug text-slate-900">
+                      {formatAreaDetail(property.area_mt2, property.sqm_land)}
                     </p>
                   </CardContent>
                 </Card>
               </div>
+
+              {property.agent_name ? (
+                <Card>
+                  <CardHeader className="flex flex-row items-center gap-3 space-y-0 pb-2">
+                    <UserCircle className="h-5 w-5 text-slate-600" aria-hidden />
+                    <div>
+                      <CardTitle className="text-base">Contacto del agente</CardTitle>
+                      {property.agent_agency ? (
+                        <CardDescription>{property.agent_agency}</CardDescription>
+                      ) : null}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="font-medium text-slate-900">{property.agent_name}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {property.agent_phone ? (
+                        <a
+                          href={`tel:${property.agent_phone}`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                        >
+                          <Phone className="h-4 w-4" />
+                          {property.agent_phone}
+                        </a>
+                      ) : null}
+                      {property.agent_whatsapp ? (
+                        <a
+                          href={property.agent_whatsapp}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={cn(buttonVariants({ variant: "default", size: "sm" }))}
+                        >
+                          WhatsApp
+                        </a>
+                      ) : null}
+                      {property.agent_email ? (
+                        <a
+                          href={`mailto:${property.agent_email}`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                        >
+                          <Mail className="h-4 w-4" />
+                          Email
+                        </a>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               <Card>
                 <CardHeader>
@@ -219,17 +315,10 @@ export default function PropertyDetailPage() {
                 </CardContent>
               </Card>
 
-              {property.url ? (
-                <a
-                  href={property.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Ver en portal original
-                </a>
-              ) : null}
+              <PortalOriginalLink
+                storedUrl={property.url}
+                remoteId={property.remote_id}
+              />
             </div>
 
             {isDrawerOpen && selectedProperty ? (
