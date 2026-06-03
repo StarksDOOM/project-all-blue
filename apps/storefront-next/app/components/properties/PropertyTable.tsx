@@ -4,12 +4,33 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 import { BusinessTypeFilter, PropertyListing } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const PAGE_SIZE = 20;
 
 const SECTOR_OPTIONS = [
-  "",
   "Piantini",
   "Ensanche Naco",
   "La Esperilla",
@@ -26,15 +47,10 @@ interface PropertyTableProps {
   selectedPropertyId: number | null;
 }
 
-function formatPrimaryPrice(property: PropertyListing): string {
-  if (property.currency === "DOP") {
-    return `RD$${property.price_raw.toLocaleString("en-US", {
-      maximumFractionDigits: 0,
-    })}`;
-  }
-  return `$${property.price_raw.toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  })} USD`;
+function businessTypeBadgeVariant(type: string): "default" | "secondary" | "outline" {
+  if (type === "venta") return "default";
+  if (type === "alquiler") return "secondary";
+  return "outline";
 }
 
 export function PropertyTable({
@@ -70,178 +86,192 @@ export function PropertyTable({
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
 
-  const handleSectorChange = (value: string) => {
-    setSectorFilter(value);
-    setCurrentPage(1);
-  };
-
-  const handleBusinessTypeChange = (value: BusinessTypeFilter) => {
-    setBusinessTypeFilter(value);
-    setCurrentPage(1);
-  };
-
   if (isLoading && !data) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-slate-600">
-        Syncing database...
-      </div>
+      <Card>
+        <CardContent className="space-y-3">
+          <Skeleton className="h-8 w-full max-w-md" />
+          <Skeleton className="h-64 w-full" />
+        </CardContent>
+      </Card>
     );
   }
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700">
-        Failed to load properties: {(error as Error).message}
-      </div>
+      <Card className="border-destructive/30 bg-destructive/5">
+        <CardContent className="pt-4 text-sm text-destructive">
+          Failed to load properties: {(error as Error).message}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Ensure FastAPI is running at{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-foreground">
+              http://127.0.0.1:8000
+            </code>
+            .
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-4">
-        <div className="flex min-w-[180px] flex-col gap-1">
-          <label htmlFor="sector-filter" className="text-xs font-semibold uppercase text-slate-500">
-            Sector
-          </label>
-          <select
-            id="sector-filter"
-            value={sectorFilter}
-            onChange={(event) => handleSectorChange(event.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-          >
-            <option value="">All Sectors</option>
-            {SECTOR_OPTIONS.filter(Boolean).map((sector) => (
-              <option key={sector} value={sector}>
-                {sector}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card>
+        <CardContent className="flex flex-wrap items-end gap-4">
+          <div className="flex min-w-[200px] flex-col gap-2">
+            <Label htmlFor="sector-filter">Sector</Label>
+            <Select
+              value={sectorFilter || "all"}
+              onValueChange={(value) => {
+                setSectorFilter(!value || value === "all" ? "" : value);
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger id="sector-filter" className="w-full min-w-[200px]" size="default">
+                <SelectValue placeholder="All Sectors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Sectors</SelectItem>
+                {SECTOR_OPTIONS.map((sector) => (
+                  <SelectItem key={sector} value={sector}>
+                    {sector}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="flex min-w-[180px] flex-col gap-1">
-          <label
-            htmlFor="business-type-filter"
-            className="text-xs font-semibold uppercase text-slate-500"
-          >
-            Type
-          </label>
-          <select
-            id="business-type-filter"
-            value={businessTypeFilter}
-            onChange={(event) =>
-              handleBusinessTypeChange(event.target.value as BusinessTypeFilter)
-            }
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
-          >
-            <option value="">All Types</option>
-            <option value="alquiler">Rent (Alquiler)</option>
-            <option value="venta">Sale (Venta)</option>
-          </select>
-        </div>
+          <div className="flex min-w-[200px] flex-col gap-2">
+            <Label htmlFor="business-type-filter">Type</Label>
+            <Select
+              value={businessTypeFilter || "all"}
+              onValueChange={(value) => {
+                setBusinessTypeFilter(
+                  !value || value === "all" ? "" : (value as BusinessTypeFilter)
+                );
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger
+                id="business-type-filter"
+                className="w-full min-w-[200px]"
+                size="default"
+              >
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="alquiler">Rent (Alquiler)</SelectItem>
+                <SelectItem value="venta">Sale (Venta)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        <div className="ml-auto text-sm text-slate-600">
-          {isFetching ? "Refreshing..." : null}
-          {metadata ? (
-            <span>
-              Showing page {metadata.page} of {metadata.pages} ({metadata.total.toLocaleString()}{" "}
-              total)
-            </span>
-          ) : null}
-        </div>
-      </div>
+          <div className="ml-auto text-sm text-muted-foreground">
+            {isFetching ? <span>Refreshing…</span> : null}
+            {metadata ? (
+              <span>
+                Page {metadata.page} of {metadata.pages} ({metadata.total.toLocaleString()}{" "}
+                total)
+              </span>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 bg-slate-50">
-              <th className="p-4 text-left font-semibold text-slate-700">Property</th>
-              <th className="p-4 text-left font-semibold text-slate-700">Price</th>
-              <th className="p-4 text-left font-semibold text-slate-700">Sector</th>
-              <th className="p-4 text-left font-semibold text-slate-700">Type</th>
-              <th className="p-4 text-right font-semibold text-slate-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Card className="py-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Property</TableHead>
+              <TableHead>Price</TableHead>
+              <TableHead>Sector</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {filteredRows.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-slate-500">
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                   No properties match the current filters on this page.
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ) : (
               filteredRows.map((property) => {
                 const isSelected = selectedPropertyId === property.id;
                 return (
-                  <tr
-                    key={property.remote_id}
-                    className={`border-b border-slate-100 ${
-                      isSelected ? "bg-blue-50" : "hover:bg-slate-50"
-                    }`}
-                  >
-                    <td className="p-4">
-                      <div className="font-medium text-slate-900">{property.title}</div>
-                      <div className="text-xs text-slate-500">#{property.remote_id}</div>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium text-slate-900">
-                        {formatPrimaryPrice(property)}
+                  <TableRow key={property.remote_id} data-state={isSelected ? "selected" : undefined}>
+                    <TableCell>
+                      <div className="font-medium">{property.title}</div>
+                      <div className="text-xs text-muted-foreground">#{property.remote_id}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{formatPrimaryPrice(property)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatSecondaryPrice(property)}
                       </div>
-                      {property.currency === "DOP" ? (
-                        <div className="text-xs text-slate-500">
-                          ≈ ${property.price_usd.toLocaleString("en-US")} USD
-                        </div>
-                      ) : null}
-                    </td>
-                    <td className="p-4 text-slate-700">{property.sector}</td>
-                    <td className="p-4 capitalize text-slate-700">{property.business_type}</td>
-                    <td className="p-4 text-right">
+                    </TableCell>
+                    <TableCell>{property.sector}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={businessTypeBadgeVariant(property.business_type)}
+                        className="capitalize"
+                      >
+                        {property.business_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
                       <div className="flex flex-col items-end gap-2">
                         <Link
                           href={`/properties/${property.remote_id}`}
-                          className="text-sm font-medium text-slate-700 underline-offset-2 hover:underline"
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                         >
                           Ver detalle
                         </Link>
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => onSelectProperty(property)}
-                          className="text-sm font-medium text-blue-600 underline-offset-2 hover:underline"
                         >
                           Generate Contract
-                        </button>
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })
             )}
-          </tbody>
-        </table>
-      </div>
+          </TableBody>
+        </Table>
+      </Card>
 
-      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-          disabled={!canGoPrevious || isFetching}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Previous
-        </button>
+      <Card>
+        <CardContent className="flex items-center justify-between py-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={!canGoPrevious || isFetching}
+          >
+            Previous
+          </Button>
 
-        <span className="text-sm text-slate-700">
-          Page {currentPage} of {totalPages}
-        </span>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages}
+          </span>
 
-        <button
-          type="button"
-          onClick={() => setCurrentPage((page) => page + 1)}
-          disabled={!canGoNext || isFetching}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCurrentPage((page) => page + 1)}
+            disabled={!canGoNext || isFetching}
+          >
+            Next
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

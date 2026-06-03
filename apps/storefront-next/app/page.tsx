@@ -3,20 +3,28 @@
 import { useState } from "react";
 import ContractDrawer from "./components/properties/ContractDrawer";
 import { PropertyTable } from "./components/properties/PropertyTable";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./components/ui/card";
 import { PropertyListing } from "./lib/types";
 
 export default function Home() {
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6 md:p-8">
+    <main className="min-h-screen bg-muted/40 p-6 md:p-8">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Property Dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Browse synced RE/MAX inventory with server-side pagination.
-          </p>
-        </header>
+        <Card className="mb-6 border-0 bg-transparent shadow-none ring-0">
+          <CardHeader className="px-0">
+            <CardTitle className="text-2xl">Property Dashboard</CardTitle>
+            <CardDescription>
+              Browse synced RE/MAX inventory with server-side pagination.
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <div className={selectedProperty ? "min-w-0 flex-1" : "w-full"}>
@@ -27,7 +35,7 @@ export default function Home() {
           </div>
 
           {selectedProperty ? (
-            <div className="w-full shrink-0 lg:w-[380px] lg:sticky lg:top-8">
+            <div className="w-full shrink-0 lg:sticky lg:top-8 lg:w-[380px]">
               <ContractDrawer
                 property={selectedProperty}
                 onClose={() => setSelectedProperty(null)}
