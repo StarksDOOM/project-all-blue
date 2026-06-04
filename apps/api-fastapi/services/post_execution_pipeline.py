@@ -21,6 +21,7 @@ from services.docusign.document_download import download_completed_envelope_pdf
 from services.docusign.webhook import extract_signer_metadata_from_event
 from services.notification_service import dispatch_post_execution_notifications
 from services.pdf_renderer import sha256_bytes
+from services.realtime_broadcaster import broadcaster
 from services.transaction_service import get_latest_legal_contract
 
 logger = logging.getLogger(__name__)
@@ -162,6 +163,16 @@ def run_post_execution_pipeline(
                 contract=contract,
                 property_listing=property_listing,
                 audit_certificate_path=str(cert_path),
+            )
+
+            broadcaster.publish_sync(
+                transaction.id,
+                {
+                    "event": "TRANSACTION_UPDATED",
+                    "transaction_id": transaction.id,
+                    "status": transaction.status.value,
+                    "has_audit_certificate": True,
+                },
             )
     except Exception:
         logger.exception("Post-execution pipeline failed transaction_id=%s", transaction_id)

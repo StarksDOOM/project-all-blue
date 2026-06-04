@@ -27,7 +27,7 @@ from database import (
     ensure_transaction_schema,
     init_db,
 )
-from routers import admin, contracts, docusign, properties, transactions
+from routers import admin, contracts, docusign, properties, realtime, transactions
 
 # Load DATABASE_URL, CORS_ORIGINS, ADSPOWER_* from apps/api-fastapi/.env
 load_dotenv()
@@ -45,6 +45,11 @@ async def lifespan(app: FastAPI):
 
     init_db creates tables; ensure_* applies additive indexes/columns on existing DBs.
     """
+    import asyncio
+
+    from services.realtime_broadcaster import bind_app_event_loop
+
+    bind_app_event_loop(asyncio.get_running_loop())
     init_db()
     ensure_contract_schema()
     ensure_ingestion_schema()
@@ -70,6 +75,7 @@ app.include_router(contracts.router)
 app.include_router(admin.router)
 app.include_router(transactions.router)
 app.include_router(docusign.router)
+app.include_router(realtime.router)
 
 
 @app.get("/health")
