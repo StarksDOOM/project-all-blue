@@ -32,3 +32,77 @@ When writing or changing production code in this repo:
 - Match existing file style (Python: PEP 257; TypeScript: JSDoc on exported APIs).
 
 Spec-kit and walkthroughs do not replace in-code documentation for maintainers.
+
+## Security — OWASP-aligned development (mandatory)
+
+All new and changed code in **All Blue Core** MUST follow [OWASP Top 10](https://owasp.org/www-project-top-ten/) thinking across **API, storefront, storage, and ops**. Security is not a post-merge pass; it is part of every feature design and review.
+
+### A01 — Broken access control
+
+- **Never** trust client-supplied IDs for authorization alone (`property_id`, `transaction_id`, `remote_id`). Resolve resources server-side; return **404** (not 403) when a row does not exist to avoid enumeration leaks where appropriate.
+- Transaction and contract endpoints MUST verify the session/contract belongs to the intended workflow (future: tenant/user binding). Do not expose admin routes (`/api/admin/*`) on public CORS without auth when hardening production.
+- Storefront MUST NOT expose internal paths, raw `file_path` from the DB, or storage roots to the browser—use API streaming endpoints (`/contract/pdf`) only.
+
+### A02 — Cryptographic failures
+
+- **Secrets:** `DATABASE_URL`, API keys, and signing secrets only via `.env` / `.env.local` (gitignored). Never commit credentials or log them.
+- **Phase 5 ledger:** PDF tamper evidence uses **SHA-256 of PDF bytes** (`document_hash`). Re-verify hash on disk before `execute-signature`. Do not confuse `version_hash` (markdown) with `document_hash` (PDF).
+- **Signing records:** `signing_hash` binds role, transaction id, document hash, timestamp, IP, and User-Agent—do not strip telemetry fields when extending signatures.
+- **Transport:** Assume HTTPS in production; do not send PII over mixed content.
+
+### A03 — Injection
+
+- **SQL:** SQLModel/ORM only; no f-string SQL. Raw `text()` DDL in `database.py` is migration-only, never with user input.
+- **Commands:** No `os.system` / shell interpolation with portal URLs or user strings.
+- **Templates:** Contract markdown uses safe `format_map` / controlled templates—never `eval` or Jinja2 with untrusted template sources.
+
+### A04 — Insecure design
+
+- State machines (`TransactionSessionStatus`) MUST reject invalid transitions (e.g. sign before PDF seal, double-sign same role).
+- Fail closed on hash mismatch (**409**), missing PDF (**400**), or unknown transaction (**404**).
+- Prefer idempotent, explicit endpoints (`generate-pdf`, `execute-signature`) over ambiguous combined actions.
+
+### A05 — Security misconfiguration
+
+- **CORS:** `CORS_ORIGINS` env allowlist only; do not use `*` with credentials in production.
+- **Debug:** Do not enable FastAPI debug tracebacks or Next.js verbose error pages in production builds.
+- **Dependencies:** Pin versions in `requirements.txt` / `package-lock.json`; run updates deliberately after tests.
+
+### A06 — Vulnerable and outdated components
+
+- Before adding packages (`reportlab`, playwright, etc.), justify need and scan for known CVEs when upgrading.
+- Keep Python/Node runtimes on supported LTS versions in deployment docs.
+
+### A07 — Identification and authentication failures
+
+- Today, signing endpoints are **internal-trust** (no JWT). When auth lands, **every** `POST` mutating transactions/signatures MUST require authenticated context; rate-limit signature attempts.
+- Do not store passwords in `signature_telemetry`; store only audit metadata defined in schema.
+
+### A08 — Software and data integrity failures
+
+- Treat `document_hash` as immutable after seal; regenerating PDF MUST produce a new hash and invalidate prior signature intent (document version bump or explicit reset policy).
+- Chunked git commits only after tests pass; no unsigned artifact commits of `storage/` binaries.
+
+### A09 — Security logging and monitoring failures
+
+- Log signature events at **INFO** with `transaction_id` and role—**never** log full cédula/RNC, tokens, or PDF bytes.
+- Scraper telemetry (`ScraperErrorLog`) must not persist secrets from portal HTML.
+
+### A10 — Server-side request forgery (SSRF)
+
+- Portal fetch/scrape URLs MUST be validated against allowed hosts (`remaxrd.com`, known patterns). Reject arbitrary `portal_url` overrides pointing at internal IPs (`127.0.0.1`, `169.254.*`, metadata endpoints).
+
+### Storefront (Next.js) — companion rules
+
+- **XSS:** Prefer React text binding; avoid `dangerouslySetInnerHTML` except for controlled contract preview—and sanitize or restrict to generated markdown pipeline output.
+- **CSRF:** When cookies/session auth is added, use SameSite and anti-CSRF tokens on mutating routes.
+- **Env:** Only `NEXT_PUBLIC_*` in client bundles; API secrets stay server-side.
+- **Zod:** Validate all form payloads client-side **and** rely on FastAPI/Pydantic server-side (never client-only validation).
+
+### Agent checklist (every PR / feature)
+
+1. Threat model the feature in one paragraph (assets, trust boundaries, attackers).
+2. Confirm input validation on API + UI.
+3. Confirm no new secrets or storage paths leak to git or client.
+4. Confirm OWASP-relevant tests (pytest for auth boundaries, hash tamper, invalid state) where applicable.
+5. Note known gaps explicitly in feature README **Out of scope** (e.g. “no JWT yet”) rather than silent omission.
