@@ -5,7 +5,10 @@ import {
   PropertiesQueryParams,
   PropertyListing,
   PropertyListingApiRow,
+  PropertyDetailResult,
+  ScraperErrorListResponse,
 } from "./types";
+import { resolveBathsForDisplay } from "./bathrooms";
 import { ensureRemaxPortalUrl } from "./portal-url";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -116,7 +119,7 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
     province: row.province,
     business_type: parseBusinessType(row.raw_description, row.title),
     beds: toNullableMetric(row.bedrooms),
-    baths: toNullableMetric(row.bathrooms),
+    baths: resolveBathsForDisplay(row.bathrooms, row.raw_description),
     area_mt2: toNullableMetric(row.square_meters),
     sqm_land: toNullableMetric(row.sqm_land ?? null),
     agent_name: row.agent_name ?? null,
@@ -138,10 +141,12 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
  */
 export async function getPropertyDetail(
   id: string | number,
-  options?: { portalUrl?: string }
-): Promise<PropertyListing> {
+  options?: { portalUrl?: string; refreshFromPortal?: boolean }
+): Promise<PropertyDetailResult> {
   const resolvedId = encodeURIComponent(String(id).trim());
-  const search = new URLSearchParams({ refresh_from_portal: "true" });
+  const search = new URLSearchParams({
+    refresh_from_portal: String(options?.refreshFromPortal ?? true),
+  });
   if (options?.portalUrl) {
     search.set("portal_url", options.portalUrl);
   }
@@ -164,7 +169,11 @@ export async function getPropertyDetail(
     }
 
     const row: PropertyListingApiRow = await response.json();
-    return mapPropertyListing(row);
+    return {
+      property: mapPropertyListing(row),
+      portalRefreshFailed: Boolean(row.portal_refresh_failed),
+      portalRefreshMessage: row.portal_refresh_message ?? null,
+    };
   } catch (error) {
     if (error instanceof Error) {
       console.error("[getPropertyDetail] request failed", { id, message: error.message, url });
@@ -215,6 +224,29 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
 }
 
 export const api = {
+  getScraperErrors: async (params?: {
+    resolved?: boolean;
+    limit?: number;
+  }): Promise<ScraperErrorListResponse> => {
+    const search = new URLSearchParams();
+    search.set("resolved", String(params?.resolved ?? false));
+    if (params?.limit != null) {
+      search.set("limit", String(params.limit));
+    }
+    const response = await fetch(
+      `${BASE_URL}/api/admin/scraper-errors?${search.toString()}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to fetch scraper errors: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
   getPropertiesPage: async (
     params: PropertiesQueryParams = {}
   ): Promise<{ metadata: PaginatedPropertiesResponse["metadata"]; data: PropertyListing[] }> => {
