@@ -111,13 +111,11 @@ def seeded_property(db_session: Session) -> Generator[PropertyListing, None, Non
         is_active=True,
     )
     db_session.add(listing)
-    db_session.commit()
+    db_session.flush()
     db_session.refresh(listing)
 
     yield listing
-
-    with Session(engine) as cleanup:
-        delete_property_cascade(cleanup, property_id=listing.id)
+    # Rolled back by db_session fixture — no committed pytest rows when tests finish cleanly.
 
 
 @pytest.fixture()

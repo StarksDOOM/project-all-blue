@@ -78,7 +78,7 @@ def test_admin_list_unresolved_scraper_errors(
             resolved=True,
         )
     )
-    db_session.commit()
+    db_session.flush()
 
     response = api_client.get("/api/admin/scraper-errors?resolved=false&limit=10")
     assert response.status_code == 200

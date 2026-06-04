@@ -171,6 +171,16 @@ def ensure_ingestion_schema() -> None:
         ON real_estate.scraper_error_logs (resolved, created_at DESC)
         WHERE resolved = FALSE
         """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_properties_active_portal
+        ON real_estate.properties (source_portal)
+        WHERE deleted_at IS NULL
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_properties_portal_active_modified
+        ON real_estate.properties (source_portal, last_modified DESC)
+        WHERE deleted_at IS NULL
+        """,
     ]
     with engine.connect() as connection:
         for statement in statements:

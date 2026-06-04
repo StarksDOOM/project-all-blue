@@ -62,9 +62,13 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="All Blue Core API", version="0.2.0", lifespan=lifespan)
 
+_default_cors = "http://localhost:3000,http://127.0.0.1:3000"
+_cors_raw = os.getenv("CORS_ORIGINS", _default_cors)
+allow_origins = [origin.strip() for origin in _cors_raw.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
