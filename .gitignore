@@ -45,3 +45,7 @@ Thumbs.db
 requirements.foundation.txt
 requirements.sync.txt
 scripts/git-milestone-commits.ps1
+
+# Ad-hoc RE/MAX session probes (not maintained product tooling)
+apps/api-fastapi/scripts/peek_*.py
+apps/api-fastapi/scripts/probe_*.py
