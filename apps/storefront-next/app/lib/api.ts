@@ -1,5 +1,6 @@
 import {
   ContractRecord,
+  CreateSavedSearchPayload,
   InitializeContractPayload,
   LegalContractRecord,
   PaginatedPropertiesResponse,
@@ -7,6 +8,8 @@ import {
   PropertyListing,
   PropertyListingApiRow,
   PropertyDetailResult,
+  SavedSearchAlert,
+  SavedSearchListResponse,
   ScraperErrorListResponse,
   TransactionCreatePayload,
   TransactionRecord,
@@ -338,6 +341,58 @@ export const api = {
       metadata: result.metadata,
       data: result.data.map(mapPropertyListing),
     };
+  },
+
+  // STREAM 5 PHASE 3.0 saved search alert endpoints (user_id client supplied until auth)
+  createSavedSearchAlert: async (payload: CreateSavedSearchPayload): Promise<SavedSearchAlert> => {
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const message = await parseErrorMessage(response, `Failed to save search alert: ${response.statusText}`);
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  listSavedSearchAlerts: async (userId: string): Promise<SavedSearchListResponse> => {
+    const qs = new URLSearchParams({ user_id: userId });
+    const response = await fetch(
+      `${resolveApiBaseUrl()}/api/v1/saved-searches?${qs.toString()}`,
+      { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to load saved searches: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  updateSavedSearchAlert: async (
+    id: string,
+    patch: Partial<Pick<SavedSearchAlert, "title" | "is_active">>
+  ): Promise<SavedSearchAlert> => {
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      const message = await parseErrorMessage(response, `Failed to update alert: ${response.statusText}`);
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  deleteSavedSearchAlert: async (id: string): Promise<void> => {
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const message = await parseErrorMessage(response, `Failed to delete alert: ${response.statusText}`);
+      throw new Error(message);
+    }
   },
 
   initializeContract: async (

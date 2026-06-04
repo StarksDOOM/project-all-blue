@@ -1,3 +1,5 @@
+import type { PropertyFilterParams } from "./property-filters";
+
 /** Normalized listing shape used across the storefront UI. */
 export interface PropertyListing {
   /** Numeric convenience id (parsed from remote_id when possible). */
@@ -211,4 +213,25 @@ export interface ContractRecord {
   document_body: string;
   last_modified: number;
   server_version: number;
+}
+
+/** STREAM 5 PHASE 3.0 Saved Search Alert (filters_json mirrors PropertyFilterParams shape) */
+export interface SavedSearchAlert {
+  id: string;
+  user_id: string;
+  title: string;
+  filters_json: Record<string, unknown>;
+  is_active: boolean;
+  created_at: string;
+  last_matched_at?: string | null;
+}
+
+export interface SavedSearchListResponse {
+  data: SavedSearchAlert[];
+}
+
+export interface CreateSavedSearchPayload {
+  user_id: string;
+  title: string;
+  filters: Partial<PropertyFilterParams>; // subset without page
 }

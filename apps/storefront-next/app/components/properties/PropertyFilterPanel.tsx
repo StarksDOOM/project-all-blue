@@ -2,6 +2,7 @@
 
 import { PropertyFilterParams } from "@/lib/property-filters";
 import { BusinessTypeFilter } from "@/lib/types";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,8 @@ interface PropertyFilterPanelProps {
   onInstantChange: (patch: Partial<PropertyFilterParams>) => void;
   onReset: () => void;
   isDebouncing?: boolean;
+  /** When provided and active filters exist, renders high-visibility save button (Phase 3) */
+  onSaveAlert?: () => void;
 }
 
 export function PropertyFilterPanel({
@@ -45,7 +48,19 @@ export function PropertyFilterPanel({
   onInstantChange,
   onReset,
   isDebouncing,
+  onSaveAlert,
 }: PropertyFilterPanelProps) {
+  const hasActiveFilters = Boolean(
+    filters.sector ||
+      filters.keyword ||
+      filters.price_min != null ||
+      filters.price_max != null ||
+      filters.bedrooms_min != null ||
+      filters.bathrooms_min != null ||
+      filters.property_type ||
+      filters.agency
+  );
+
   return (
     <Card>
       <CardContent className="grid gap-4 pt-6 md:grid-cols-2 lg:grid-cols-4">
@@ -196,6 +211,12 @@ export function PropertyFilterPanel({
           <Button type="button" variant="outline" onClick={onReset}>
             Clear filters
           </Button>
+          {onSaveAlert && hasActiveFilters ? (
+            <Button type="button" onClick={onSaveAlert} className="ml-auto font-medium">
+              <Bell className="mr-2 h-4 w-4" />
+              Guardar Alerta de Búsqueda
+            </Button>
+          ) : null}
           {isDebouncing ? (
             <span className="text-xs text-muted-foreground">Applying filters…</span>
           ) : null}

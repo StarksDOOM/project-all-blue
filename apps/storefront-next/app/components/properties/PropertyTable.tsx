@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { propertyKeys } from "@/lib/query-keys";
 import { useFilterParams } from "@/hooks/useFilterParams";
+import { useCreateSearchAlert } from "@/hooks/useCreateSearchAlert";
 import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { PropertyListing } from "@/lib/types";
@@ -60,6 +61,8 @@ export function PropertyTable({
     resetFilters,
     isDebouncing,
   } = useFilterParams();
+
+  const createAlert = useCreateSearchAlert();
 
   const currentPage = appliedFilters.page ?? 1;
 
@@ -124,6 +127,7 @@ export function PropertyTable({
           onInstantChange={setInstantFilter}
           onReset={resetFilters}
           isDebouncing={isDebouncing}
+          onSaveAlert={createAlert.openDialog}
         />
         <Card>
           <CardContent className="space-y-3 pt-6">
@@ -131,6 +135,7 @@ export function PropertyTable({
             <Skeleton className="h-64 w-full" />
           </CardContent>
         </Card>
+        {createAlert.dialog}
       </div>
     );
   }
@@ -144,12 +149,14 @@ export function PropertyTable({
           onDraftChange={setDraftField}
           onInstantChange={setInstantFilter}
           onReset={resetFilters}
+          onSaveAlert={createAlert.openDialog}
         />
         <Card className="border-destructive/30 bg-destructive/5">
           <CardContent className="pt-4 text-sm text-destructive">
             Failed to load properties: {(error as Error).message}
           </CardContent>
         </Card>
+        {createAlert.dialog}
       </div>
     );
   }
@@ -163,6 +170,7 @@ export function PropertyTable({
         onInstantChange={setInstantFilter}
         onReset={resetFilters}
         isDebouncing={isDebouncing}
+        onSaveAlert={createAlert.openDialog}
       />
 
       <div className="flex justify-end text-sm text-muted-foreground">
@@ -302,6 +310,7 @@ export function PropertyTable({
           }}
         />
       ) : null}
+      {createAlert.dialog}
     </div>
   );
 }
