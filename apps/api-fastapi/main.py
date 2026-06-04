@@ -21,6 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import (
     ensure_contract_schema,
     ensure_ingestion_schema,
+    ensure_phase5_schema,
     ensure_transaction_schema,
     init_db,
 )
@@ -46,6 +47,7 @@ async def lifespan(app: FastAPI):
     ensure_contract_schema()
     ensure_ingestion_schema()
     ensure_transaction_schema()
+    ensure_phase5_schema()
     yield
 
 

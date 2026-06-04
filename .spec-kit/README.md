@@ -9,7 +9,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 ## Developer tooling
 
 - **Code reviews (token-efficient):** [docs/development/code-review-graph.md](../docs/development/code-review-graph.md) — local index via [code-review-graph](https://github.com/tirth8205/code-review-graph); not committed to git.
-- **Agent engineering directives:** [docs/development/engineering-directives.md](../docs/development/engineering-directives.md) — CRG default, Graphify upgrade gates, code comments.
+- **Agent engineering directives:** [docs/development/engineering-directives.md](../docs/development/engineering-directives.md) — CRG default, Graphify upgrade gates, code comments, **OWASP Top 10 (mandatory)**.
 - **Graphify upgrade (when CRG is not enough):** [docs/development/graphify-upgrade-requirements.md](../docs/development/graphify-upgrade-requirements.md)
 
 ## Conventions

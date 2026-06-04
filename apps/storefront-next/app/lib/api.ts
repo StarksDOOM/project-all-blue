@@ -11,6 +11,7 @@ import {
   TransactionCreatePayload,
   TransactionRecord,
 } from "./types";
+import type { SignatureRole } from "./transaction-types";
 import { resolveBathsForDisplay } from "./bathrooms";
 import { ensureRemaxPortalUrl } from "./portal-url";
 
@@ -346,6 +347,43 @@ export const api = {
       const message = await parseErrorMessage(
         response,
         `Failed to fetch transaction contract: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  generateTransactionPdf: async (transactionId: string): Promise<LegalContractRecord> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate-pdf`,
+      { method: "POST", headers: { "Content-Type": "application/json" } }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `PDF generation failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  executeTransactionSignature: async (
+    transactionId: string,
+    role: SignatureRole
+  ): Promise<LegalContractRecord> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/execute-signature`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Signature execution failed: ${response.statusText}`
       );
       throw new Error(message);
     }

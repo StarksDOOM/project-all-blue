@@ -6,6 +6,7 @@ import { useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 
+import { TransactionSigningPanel } from "@/components/transactions/TransactionSigningPanel";
 import { api } from "@/lib/api";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -94,6 +95,10 @@ export default function TransactionContractPreviewPage() {
               </CardDescription>
             </CardHeader>
           </Card>
+        ) : null}
+
+        {data ? (
+          <TransactionSigningPanel contract={data} transactionId={transactionId} />
         ) : null}
 
         {data ? (

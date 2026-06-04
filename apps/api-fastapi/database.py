@@ -81,6 +81,28 @@ def ensure_transaction_schema() -> None:
         connection.commit()
 
 
+def ensure_phase5_schema() -> None:
+    """Phase 5: PDF tamper hash, secure PDF path, multi-party signature telemetry."""
+    statements = [
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS document_hash VARCHAR",
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS pdf_file_path VARCHAR",
+        """
+        CREATE INDEX IF NOT EXISTS ix_legal_contracts_document_hash
+        ON real_estate.legal_contracts (document_hash)
+        """,
+        "ALTER TABLE real_estate.transaction_sessions ADD COLUMN IF NOT EXISTS buyer_signed_at TIMESTAMPTZ",
+        "ALTER TABLE real_estate.transaction_sessions ADD COLUMN IF NOT EXISTS seller_signed_at TIMESTAMPTZ",
+        """
+        ALTER TABLE real_estate.transaction_sessions
+        ADD COLUMN IF NOT EXISTS signature_telemetry JSONB NOT NULL DEFAULT '{}'
+        """,
+    ]
+    with engine.connect() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        connection.commit()
+
+
 def ensure_ingestion_schema() -> None:
     """
     Apply additive DDL required by STREAM 2 PHASE 4.1 ingestion.
@@ -155,6 +177,7 @@ def init_db() -> None:
     ensure_contract_schema()
     ensure_ingestion_schema()
     ensure_transaction_schema()
+    ensure_phase5_schema()
 
 
 def get_db_session() -> Generator[Session, None, None]:
