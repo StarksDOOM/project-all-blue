@@ -1,6 +1,6 @@
 # Spec: Faceted Filtering Matrix & Query Indexing
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 5 PHASE 2.0  
 **Branch:** `feat/stream-5-phase-2-faceted-filtering` ← `develop`  
 **Apps:** `apps/api-fastapi/`, `apps/storefront-next/`
