@@ -9,10 +9,32 @@ from main import app
 from models import SavedSearchAlert, SavedSearchMatch
 from schemas.property_filters import PropertyFilterParams
 
+import time
+
+import jwt
+
+# Test JWT secret must match the one set in conftest.py for Phase 5.0 auth.
+TEST_JWT_SECRET = "test-secret-for-rbac-phase5-only-do-not-use-in-prod"
+
+
+def _mint_test_jwt(user_id: str = "11111111-1111-1111-1111-111111111111", role: str = "client") -> str:
+    """Mint a minimal valid HS256 JWT for test client calls (local only, no network)."""
+    now = int(time.time())
+    payload = {
+        "sub": user_id,
+        "email": f"{user_id[:8]}@example.com",
+        "app_metadata": {"role": role},
+        "iat": now,
+        "exp": now + 3600,
+    }
+    return jwt.encode(payload, TEST_JWT_SECRET, algorithm="HS256")
+
 
 def test_create_and_list_saved_search(api_client: TestClient):
+    token = _mint_test_jwt()
+    headers = {"Authorization": f"Bearer {token}"}
     payload = {
-        "user_id": "11111111-1111-1111-1111-111111111111",
+        "user_id": "11111111-1111-1111-1111-111111111111",  # ignored; taken from validated token (Phase 5.0)
         "title": "Test Piantini 2hab",
         "filters": {
             "sector": "Piantini",
@@ -20,26 +42,28 @@ def test_create_and_list_saved_search(api_client: TestClient):
             "price_max": 350000,
         },
     }
-    r = api_client.post("/api/v1/saved-searches", json=payload)
+    r = api_client.post("/api/v1/saved-searches", json=payload, headers=headers)
     assert r.status_code == 201
     created = r.json()
     assert created["title"] == "Test Piantini 2hab"
     assert created["filters_json"]["sector"] == "Piantini"
     assert created["is_active"] is True
 
-    r2 = api_client.get("/api/v1/saved-searches", params={"user_id": payload["user_id"]})
+    r2 = api_client.get("/api/v1/saved-searches", headers=headers)
     assert r2.status_code == 200
     listed = r2.json()["data"]
     assert any(a["id"] == created["id"] for a in listed)
 
 
 def test_rejects_bad_filters(api_client: TestClient):
+    token = _mint_test_jwt()
+    headers = {"Authorization": f"Bearer {token}"}
     bad = {
         "user_id": "11111111-1111-1111-1111-111111111111",
         "title": "bad",
         "filters": {"price_min": 400000, "price_max": 100000},  # invalid range
     }
-    r = api_client.post("/api/v1/saved-searches", json=bad)
+    r = api_client.post("/api/v1/saved-searches", json=bad, headers=headers)
     assert r.status_code in (400, 422)  # 422 from FastAPI/Pydantic body validation for nested model
 
 
