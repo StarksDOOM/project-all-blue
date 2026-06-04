@@ -8,6 +8,7 @@ import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { BusinessTypeFilter, PropertyListing } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
+import { TransactionContractModal } from "@/components/transactions/TransactionContractModal";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -57,6 +58,7 @@ export function PropertyTable({
   onSelectProperty,
   selectedPropertyId,
 }: PropertyTableProps) {
+  const [contractProperty, setContractProperty] = useState<PropertyListing | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sectorFilter, setSectorFilter] = useState("");
   const [businessTypeFilter, setBusinessTypeFilter] = useState<BusinessTypeFilter>("");
@@ -233,11 +235,19 @@ export function PropertyTable({
                         </Link>
                         <Button
                           type="button"
+                          variant="default"
+                          size="sm"
+                          onClick={() => setContractProperty(property)}
+                        >
+                          Generar Contrato
+                        </Button>
+                        <Button
+                          type="button"
                           variant="secondary"
                           size="sm"
                           onClick={() => onSelectProperty(property)}
                         >
-                          Generate Contract
+                          SRL (legacy)
                         </Button>
                       </div>
                     </TableCell>
@@ -274,6 +284,16 @@ export function PropertyTable({
           </Button>
         </CardContent>
       </Card>
+
+      {contractProperty ? (
+        <TransactionContractModal
+          property={contractProperty}
+          open={Boolean(contractProperty)}
+          onOpenChange={(open) => {
+            if (!open) setContractProperty(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

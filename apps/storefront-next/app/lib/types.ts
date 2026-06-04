@@ -119,6 +119,56 @@ export interface InitializeContractPayload {
   seller_id: string;
 }
 
+export type TransactionSessionStatus = "DRAFT" | "REVIEW" | "GENERATED" | "EXECUTED";
+
+export interface TransactionCreatePayload {
+  property_id: string;
+  buyer_name: string;
+  buyer_id_doc: string;
+  seller_name: string;
+  seller_id_doc: string;
+  agreed_price: number;
+  currency: string;
+}
+
+export interface TransactionRecord {
+  id: string;
+  property_id: string;
+  property_remote_id?: string | null;
+  property_title?: string | null;
+  buyer_name: string;
+  buyer_id_doc: string;
+  seller_name: string;
+  seller_id_doc: string;
+  agreed_price: number;
+  currency: string;
+  status: TransactionSessionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LegalContractRecord {
+  id: string;
+  transaction_session_id: string;
+  file_path: string | null;
+  storage_url: string | null;
+  document_body: string;
+  generated_at: string;
+  version_hash: string;
+  transaction: TransactionRecord;
+  property: {
+    id: string;
+    remote_id: string;
+    title: string;
+    sector: string;
+    province: string;
+    bathrooms: number;
+    bedrooms: number;
+    square_meters: number;
+    sqm_land: number | null;
+  };
+}
+
 export interface ContractRecord {
   id: string;
   contract_number: string;

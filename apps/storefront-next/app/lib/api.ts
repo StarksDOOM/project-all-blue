@@ -1,12 +1,15 @@
 import {
   ContractRecord,
   InitializeContractPayload,
+  LegalContractRecord,
   PaginatedPropertiesResponse,
   PropertiesQueryParams,
   PropertyListing,
   PropertyListingApiRow,
   PropertyDetailResult,
   ScraperErrorListResponse,
+  TransactionCreatePayload,
+  TransactionRecord,
 } from "./types";
 import { resolveBathsForDisplay } from "./bathrooms";
 import { ensureRemaxPortalUrl } from "./portal-url";
@@ -121,7 +124,7 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
     beds: toNullableMetric(row.bedrooms),
     baths: resolveBathsForDisplay(row.bathrooms, row.raw_description),
     area_mt2: toNullableMetric(row.square_meters),
-    sqm_land: toNullableMetric(row.sqm_land ?? null),
+    sqm_land: row.sqm_land != null && row.sqm_land > 0 ? row.sqm_land : null,
     agent_name: row.agent_name ?? null,
     agent_phone: row.agent_phone ?? null,
     agent_email: row.agent_email ?? null,
@@ -290,6 +293,62 @@ export const api = {
       throw new Error(message);
     }
 
+    return response.json();
+  },
+
+  createTransaction: async (
+    payload: TransactionCreatePayload
+  ): Promise<TransactionRecord> => {
+    const response = await fetch(`${BASE_URL}/api/v1/transactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Transaction creation failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  generateTransactionContract: async (
+    transactionId: string
+  ): Promise<LegalContractRecord> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate`,
+      { method: "POST", headers: { "Content-Type": "application/json" } }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Contract generation failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  getTransactionContract: async (
+    transactionId: string
+  ): Promise<LegalContractRecord> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/contract`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Failed to fetch transaction contract: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
     return response.json();
   },
 

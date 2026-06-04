@@ -14,6 +14,7 @@ import {
   UserCircle,
 } from "lucide-react";
 import ContractDrawer from "@/components/properties/ContractDrawer";
+import { TransactionContractModal } from "@/components/transactions/TransactionContractModal";
 import { PropertyImageGallery } from "@/components/properties/PropertyImageGallery";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -124,6 +125,7 @@ export default function PropertyDetailPage() {
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
 
   const { data: detailResult, isLoading, isError, error } = useQuery({
     queryKey: ["property-detail", propertyId],
@@ -354,11 +356,33 @@ export default function PropertyDetailPage() {
               </p>
               <p className="truncate text-sm font-medium text-slate-900">{property.title}</p>
             </div>
-            <Button size="lg" className="w-full sm:w-auto" onClick={handleOpenContractDrawer}>
-              Iniciar Trámite de Contrato
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button
+                size="lg"
+                className="w-full sm:w-auto"
+                onClick={() => setIsTransactionModalOpen(true)}
+              >
+                Generar Contrato
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={handleOpenContractDrawer}
+              >
+                SRL (legacy)
+              </Button>
+            </div>
           </div>
         </div>
+      ) : null}
+
+      {property ? (
+        <TransactionContractModal
+          property={property}
+          open={isTransactionModalOpen}
+          onOpenChange={setIsTransactionModalOpen}
+        />
       ) : null}
     </main>
   );
