@@ -160,7 +160,7 @@ All new and changed code in **All Blue Core** MUST follow [OWASP Top 10](https:/
 ### A08 — Software and data integrity failures
 
 - Treat `document_hash` as immutable after seal; regenerating PDF MUST produce a new hash and invalidate prior signature intent (document version bump or explicit reset policy).
-- Chunked git commits only after tests pass; no unsigned artifact commits of `storage/` binaries.
+- **Small, atomic chunked git commits only** after tests pass (see Agents.md "Small commits rule"). Never large monolithic commits. No unsigned artifact commits of `storage/` binaries.
 
 ### A09 — Security logging and monitoring failures
 

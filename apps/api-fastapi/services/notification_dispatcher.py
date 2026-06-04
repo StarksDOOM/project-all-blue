@@ -17,27 +17,21 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 from fastapi import BackgroundTasks
 from sqlmodel import Session
 
 from models import NotificationDeliveryStatus, SavedSearchMatch
 
+if TYPE_CHECKING:
+    from services.email_client import EmailClient
+
+# Import concrete stub at runtime for default (avoids circular at type check time)
+from services.email_client import StubEmailProvider
+
 
 logger = logging.getLogger(__name__)
-
-
-class EmailClient(Protocol):
-    """
-    Minimal interface for pluggable email providers (SES, Resend, SendGrid, etc.).
-
-    Implementations must be async or wrapped to be non-blocking.
-    """
-
-    async def send_email(self, to: str, subject: str, html_body: str) -> bool:
-        """Return True on success, False (or raise) on permanent failure."""
-        ...
 
 
 class NotificationDispatcher:
@@ -71,16 +65,56 @@ class NotificationDispatcher:
 
     def __init__(
         self,
-        email_client: EmailClient,
+        email_client: "EmailClient | None" = None,
         frontend_base_url: str = "http://localhost:3000",
     ) -> None:
         """
-        Args:
-            email_client: Concrete implementation of the EmailClient protocol.
-            frontend_base_url: Used when links need to be generated inside the task
-                (passed through to compiler if needed).
+        Purpose:
+            Construct a dispatcher that can schedule email delivery tasks.
+            Supports dependency injection of any EmailClient implementation
+            (production Resend, stub for tests/dev).
+
+        Lifecycle:
+            Instantiated in call sites that have access to BackgroundTasks
+            (e.g. inside match engine when web context is present, or tests).
+            The instance is short-lived; the actual send happens later in the
+            scheduled task.
+
+        Thread-safety:
+            The dispatcher itself is stateless after __init__ and safe.
+            The injected client must be thread-safe (ResendEmailProvider is,
+            via per-send clients; Stub is trivially safe).
+
+        Collaborators:
+            - EmailClient (injected or default StubEmailProvider).
+            - BackgroundTasks (from FastAPI).
+            - SavedSearchMatch (for status updates in background task).
+
+        Invariants:
+            - If no email_client supplied, defaults to StubEmailProvider
+              (preserves Phase 4.0 behavior and test compatibility).
+            - Never stores DB sessions.
+            - All delivery side-effects (send + DB update) occur in the
+              background task after the triggering transaction commits.
+
+        Parameters:
+            email_client ("EmailClient | None"): Optional provider implementing
+                the EmailClient protocol. If None, uses StubEmailProvider.
+            frontend_base_url (str): Base for constructing links if needed
+                inside rendered content or logs.
+
+        Returns:
+            None.
+
+        Raises:
+            None at construction time.
+
+        Side Effects:
+            Stores references to client and base URL (no I/O).
         """
-        self._email_client = email_client
+        if email_client is None:
+            email_client = StubEmailProvider()
+        self._email_client: "EmailClient" = email_client
         self._frontend_base_url = frontend_base_url
 
     def schedule(
@@ -146,39 +180,32 @@ class NotificationDispatcher:
                 logger.info("Match %s already delivered (status=%s)", match_id, match.delivery_status)
                 return
 
-            # === STUBBED EMAIL SEND ===
-            # Replace this block with real provider call (Amazon SES boto3 / resend SDK).
-            # Keep the try/except perimeter exactly as shown for error capture.
+            # Use the injected (or default stub) email client.
+            # Client implementations (Resend, Stub, mocks) are responsible for their
+            # own logging and must return bool without raising for expected failures.
             subject = f"New property match for your alert: {alert_title}"
-            try:
-                # Example real call (commented):
-                # success = await self._email_client.send_email(recipient, subject, rendered_html)
-                success = True  # STUB: always succeed in dev
+            success = await self._email_client.send_email(
+                recipient, subject, rendered_html
+            )
 
-                if success:
-                    match.delivery_status = NotificationDeliveryStatus.SENT
-                    match.sent_at = datetime.now(timezone.utc)
-                    match.error_message = None
-                    logger.info("Notification sent for match %s to %s", match_id, recipient)
-                else:
-                    raise RuntimeError("Email provider returned failure")
-
-            except Exception as exc:  # transport, rate limit, auth, etc.
+            if success:
+                match.delivery_status = NotificationDeliveryStatus.SENT
+                match.sent_at = datetime.now(timezone.utc)
+                match.error_message = None
+                logger.info("Notification sent for match %s to %s", match_id, recipient)
+            else:
                 match.retry_count += 1
-                match.error_message = str(exc)[:500]  # truncate for safety
+                match.error_message = "Email client reported failure (see client logs)"
                 match.delivery_status = (
                     NotificationDeliveryStatus.FAILED
                     if match.retry_count >= 3
                     else NotificationDeliveryStatus.PENDING
                 )
-                logger.exception(
-                    "Notification delivery failed for match %s (retry=%s): %s",
+                logger.warning(
+                    "Notification delivery failed for match %s (retry=%s): client returned False",
                     match_id,
                     match.retry_count,
-                    exc,
                 )
-                # In a real system you might re-add to background with delay here,
-                # or let a periodic worker pick up PENDING rows with retry < N.
 
             session.add(match)
             session.commit()
