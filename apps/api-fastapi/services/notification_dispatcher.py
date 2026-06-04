@@ -181,39 +181,31 @@ class NotificationDispatcher:
                 return
 
             # Use the injected (or default stub) email client.
-            # The client is responsible for its own error handling/logging per
-            # its contract; we only act on the bool return value.
+            # Client implementations (Resend, Stub, mocks) are responsible for their
+            # own logging and must return bool without raising for expected failures.
             subject = f"New property match for your alert: {alert_title}"
-            try:
-                # send_email is async per Protocol.
-                success = await self._email_client.send_email(
-                    recipient, subject, rendered_html
-                )
+            success = await self._email_client.send_email(
+                recipient, subject, rendered_html
+            )
 
-                if success:
-                    match.delivery_status = NotificationDeliveryStatus.SENT
-                    match.sent_at = datetime.now(timezone.utc)
-                    match.error_message = None
-                    logger.info("Notification sent for match %s to %s", match_id, recipient)
-                else:
-                    raise RuntimeError("Email client reported failure (see client logs)")
-
-            except Exception as exc:  # transport, rate limit, auth, etc. from client or here
+            if success:
+                match.delivery_status = NotificationDeliveryStatus.SENT
+                match.sent_at = datetime.now(timezone.utc)
+                match.error_message = None
+                logger.info("Notification sent for match %s to %s", match_id, recipient)
+            else:
                 match.retry_count += 1
-                match.error_message = str(exc)[:500]  # truncate for safety
+                match.error_message = "Email client reported failure (see client logs)"
                 match.delivery_status = (
                     NotificationDeliveryStatus.FAILED
                     if match.retry_count >= 3
                     else NotificationDeliveryStatus.PENDING
                 )
-                logger.exception(
-                    "Notification delivery failed for match %s (retry=%s): %s",
+                logger.warning(
+                    "Notification delivery failed for match %s (retry=%s): client returned False",
                     match_id,
                     match.retry_count,
-                    exc,
                 )
-                # In a real system you might re-add to background with delay here,
-                # or let a periodic worker pick up PENDING rows with retry < N.
 
             session.add(match)
             session.commit()
