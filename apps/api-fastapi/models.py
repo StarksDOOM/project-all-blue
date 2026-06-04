@@ -269,10 +269,20 @@ class SavedSearchAlert(SQLModel, table=True):
     last_matched_at: Optional[datetime] = Field(default=None, nullable=True)
 
 
+class NotificationDeliveryStatus(str, Enum):
+    """Delivery lifecycle for outbound match notifications (Phase 4.0)."""
+    PENDING = "pending"
+    SENT = "sent"
+    FAILED = "failed"
+
+
 class SavedSearchMatch(SQLModel, table=True):
     """
     Structured match record written by evaluate_property_against_alerts for a
     newly ingested PropertyListing that satisfied a SavedSearchAlert's filters_json.
+
+    Phase 4.0 extensions: delivery_status, timestamps, retry, error for the
+    outbound notification engine. Initial status is PENDING on creation.
     """
 
     __tablename__ = "saved_search_matches"
@@ -299,3 +309,12 @@ class SavedSearchMatch(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSONB, nullable=False, server_default="{}"),
     )
+
+    # Phase 4.0 notification delivery tracking (extended on match for simplicity;
+    # alternative paired NotificationDeliveryLog table possible in future).
+    delivery_status: NotificationDeliveryStatus = Field(
+        default=NotificationDeliveryStatus.PENDING, index=True
+    )
+    sent_at: Optional[datetime] = Field(default=None, nullable=True)
+    retry_count: int = Field(default=0)
+    error_message: Optional[str] = Field(default=None, nullable=True)

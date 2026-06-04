@@ -248,6 +248,11 @@ def ensure_saved_searches_schema() -> None:
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS server_version INTEGER",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS last_modified BIGINT",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+        # Phase 4.0 delivery tracking columns (additive, safe on existing DBs)
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS delivery_status VARCHAR DEFAULT 'pending'",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS error_message TEXT",
     ]
     index_statements = [
         """
@@ -264,6 +269,12 @@ def ensure_saved_searches_schema() -> None:
         CREATE INDEX IF NOT EXISTS ix_saved_search_matches_property
         ON real_estate.saved_search_matches (property_id)
         WHERE deleted_at IS NULL
+        """,
+        # Phase 4.0: partial index for efficient pending delivery worker queries
+        """
+        CREATE INDEX IF NOT EXISTS ix_saved_search_matches_pending_delivery
+        ON real_estate.saved_search_matches (delivery_status, matched_at)
+        WHERE delivery_status = 'pending' AND deleted_at IS NULL
         """,
     ]
     with engine.connect() as connection:

@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select
 
 from database import get_db_session
-from models import SavedSearchAlert
+from models import SavedSearchAlert, SavedSearchMatch
 from schemas.property_filters import PropertyFilterParams
 from schemas.saved_searches import (
     SavedSearchAlertOut,
@@ -117,3 +117,42 @@ def delete_saved_search(
         raise HTTPException(status_code=404, detail="Saved search not found")
     session.delete(alert)
     session.commit()
+
+
+@router.get("/{alert_id}/matches")
+def list_matches_for_alert(
+    alert_id: str,
+    user_id: str = Query(..., min_length=1),
+    session: Session = Depends(get_db_session),
+) -> dict:
+    """
+    Return matches for a saved search alert, including Phase 4.0 delivery status.
+    Used by the dashboard match history ledger.
+    """
+    alert = session.get(SavedSearchAlert, alert_id)
+    if not alert or alert.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Saved search not found")
+
+    stmt = (
+        select(SavedSearchMatch)
+        .where(SavedSearchMatch.saved_search_alert_id == alert_id)
+        .order_by(SavedSearchMatch.matched_at.desc())
+    )
+    matches = session.exec(stmt).all()
+
+    # Lightweight serialization (include delivery fields for UI badges)
+    return {
+        "alert_id": alert_id,
+        "matches": [
+            {
+                "id": m.id,
+                "property_id": m.property_id,
+                "matched_at": m.matched_at.isoformat(),
+                "match_details": m.match_details,
+                "delivery_status": m.delivery_status.value,
+                "sent_at": m.sent_at.isoformat() if m.sent_at else None,
+                "retry_count": m.retry_count,
+            }
+            for m in matches
+        ],
+    }
