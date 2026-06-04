@@ -23,7 +23,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [frontend/performance-optimization.spec.md](specs/frontend/performance-optimization.spec.md) | STREAM 5 PHASE 1.0 | SHIPPED |
 | [api/faceted-filtering-matrix.spec.md](specs/api/faceted-filtering-matrix.spec.md) | STREAM 5 PHASE 2.0 | SHIPPED |
 | [api/saved-searches-alerts.spec.md](specs/api/saved-searches-alerts.spec.md) | STREAM 5 PHASE 3.0 | SHIPPED |
-| [api/outbound-notification-delivery.spec.md](specs/api/outbound-notification-delivery.spec.md) | STREAM 5 PHASE 4.0 | DRAFT |
+| [api/outbound-notification-delivery.spec.md](specs/api/outbound-notification-delivery.spec.md) | STREAM 5 PHASE 4.1 (external email gateway) | DRAFT |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -43,7 +43,8 @@ STREAM 5 — Storefront performance
   PHASE 1.0  performance-optimization (RSC prefetch, hydration, Suspense, bundle analyzer)
   PHASE 2.0  faceted-filtering-matrix (dynamic SQL facets, URL state, debounced panel)
   PHASE 3.0  saved-searches-alerts (persist filter matrix + async match evaluator on ingestion) [SHIPPED; baseline 7 OOP structural abstractions per CRG monitoring]
-  PHASE 4.0  outbound-notification-delivery (jinja2 email compiler + dispatcher + match history ledger) [DRAFT; must not increase baseline abstractions or introduce session-passing creep]
+  PHASE 4.0  outbound-notification-delivery (jinja2 email compiler + dispatcher + match history ledger) [DRAFT; baseline started at 7]
+  PHASE 4.1  external-email-gateway (Resend via httpx, EmailClient Protocol, DI, network error handling) [DRAFT; update baseline, no creep, full docs]
 ```
 
 ## Developer tooling
