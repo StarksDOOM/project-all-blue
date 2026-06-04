@@ -145,6 +145,10 @@ export interface TransactionRecord {
   status: TransactionSessionStatus;
   created_at: string;
   updated_at: string;
+  buyer_signed_at?: string | null;
+  seller_signed_at?: string | null;
+  signature_telemetry?: Record<string, unknown>;
+  is_locked?: boolean;
 }
 
 export interface LegalContractRecord {
@@ -155,6 +159,9 @@ export interface LegalContractRecord {
   document_body: string;
   generated_at: string;
   version_hash: string;
+  document_hash?: string | null;
+  pdf_file_path?: string | null;
+  has_secure_pdf?: boolean;
   transaction: TransactionRecord;
   property: {
     id: string;
