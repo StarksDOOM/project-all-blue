@@ -39,3 +39,5 @@ Phase 5 sealed PDFs with internal placeholder signatures. The business requires 
 
 - `pytest` suite including `tests/test_docusign.py` (mocked DocuSign API).
 - Manual sandbox ceremony with RSA key in `storage/certs/` (gitignored).
+
+**Spec-Kit:** `.spec-kit/specs/api/docusign-embedded-signing.spec.md`

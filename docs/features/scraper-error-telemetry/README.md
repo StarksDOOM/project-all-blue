@@ -51,3 +51,5 @@ All Blue Core syncs third-party real estate listings into a central inventory an
 ---
 
 *Problem/solution summary only. Implementation details remain in private engineering notes and code review, not in this file.*
+
+**Spec-Kit:** `.spec-kit/specs/api/scraper-error-telemetry.spec.md`
