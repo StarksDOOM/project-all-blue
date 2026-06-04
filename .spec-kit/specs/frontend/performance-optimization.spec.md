@@ -1,6 +1,6 @@
 # Spec: Transaction Detail Performance Optimization
 
-## Status: IN_PROGRESS
+## Status: SHIPPED
 **Roadmap:** STREAM 5 PHASE 1.0  
 **Branch:** `feat/stream-5-phase-1-storefront-performance` ← `develop`  
 **App:** `apps/storefront-next/`  
