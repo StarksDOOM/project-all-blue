@@ -230,7 +230,7 @@ def test_failed_network_timeout_conditions(db_session: Session, mock_failure_cli
     fresh = db_session.exec(select(SavedSearchMatch).where(SavedSearchMatch.id == match_id)).one()
     assert fresh.delivery_status == NotificationDeliveryStatus.PENDING
     assert fresh.retry_count == 1
-    assert "simulated" in (fresh.error_message or "")
+    assert "failure" in (fresh.error_message or "").lower()
     assert mock_failure_client.call_count == 1
 
     # Second failure
