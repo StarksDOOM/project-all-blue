@@ -3,8 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  transactionFormSchema,
+  type TransactionFormValues,
+} from "@/lib/transaction-schema";
 import { Loader2 } from "lucide-react";
 
 import { api } from "@/lib/api";
@@ -20,20 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const transactionSchema = z.object({
-  buyer_name: z.string().min(2, "Nombre del comprador requerido"),
-  buyer_id_doc: z.string().min(5, "Documento del comprador requerido"),
-  seller_name: z.string().min(2, "Nombre del vendedor requerido"),
-  seller_id_doc: z.string().min(5, "Documento del vendedor requerido"),
-  agreed_price: z
-    .string()
-    .min(1)
-    .refine((value) => Number(value) > 0, "El precio pactado debe ser mayor que cero"),
-  currency: z.enum(["USD", "DOP"]),
-});
-
-type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 interface TransactionContractModalProps {
   property: PropertyListing;
@@ -64,7 +53,7 @@ export function TransactionContractModal({
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormValues>({
-    resolver: zodResolver(transactionSchema),
+    resolver: zodResolver(transactionFormSchema),
     defaultValues: {
       buyer_name: "",
       buyer_id_doc: "",
