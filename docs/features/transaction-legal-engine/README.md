@@ -47,3 +47,5 @@ After listings are in inventory, agents need to capture buyer/seller terms and p
 ---
 
 *Problem/solution summary only.*
+
+**Spec-Kit:** `.spec-kit/specs/api/transaction-legal-engine.spec.md`

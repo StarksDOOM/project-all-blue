@@ -50,3 +50,5 @@ Phase 4 produces a markdown legal draft. For audit and closing, the business nee
 ---
 
 *Problem/solution summary only.*
+
+**Spec-Kit:** `.spec-kit/specs/api/secure-pdf-signatures.spec.md`

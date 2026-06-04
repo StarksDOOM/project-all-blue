@@ -18,3 +18,5 @@
 
 - Redis Pub/Sub (swap broadcaster implementation for multi-instance).
 - WebSockets (SSE chosen for one-way server push).
+
+**Spec-Kit:** `.spec-kit/specs/api/realtime-sse-sync.spec.md`

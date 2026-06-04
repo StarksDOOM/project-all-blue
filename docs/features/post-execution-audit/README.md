@@ -32,3 +32,5 @@ DocuSign embedded signing (Phase 5) seals the Promesa de Venta. Operations need 
 
 - Live email provider wiring (stub only).
 - Implementation runbooks in this README.
+
+**Spec-Kit:** `.spec-kit/specs/api/post-execution-audit.spec.md`

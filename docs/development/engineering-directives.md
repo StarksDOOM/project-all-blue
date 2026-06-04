@@ -33,6 +33,20 @@ When writing or changing production code in this repo:
 
 Spec-kit and walkthroughs do not replace in-code documentation for maintainers.
 
+## Spec-Kit enforcement (mandatory for every feature)
+
+Ground truth for architecture lives in **`.spec-kit/specs/`**, not only in `docs/features/*/README.md`.
+
+| When | Agent action |
+|------|----------------|
+| **New feature requested** | Create `.spec-kit/specs/<area>/<feature>.spec.md` from [`.spec-kit/templates/feature.spec.template.md`](../../.spec-kit/templates/feature.spec.template.md) **before** writing production code. Set `Status: DRAFT` and correct `STREAM X PHASE X.X`. |
+| **Existing feature without spec** | Backfill spec to match shipped code on `develop`; set `Status: SHIPPED` after tests pass. |
+| **Implementation changes design** | Update the spec in the same PR as the code change. |
+| **Feature complete** | Spec lists verification gates (pytest paths); README stays problem/outcomes-only. |
+| **Index** | Register the spec in [`.spec-kit/README.md`](../../.spec-kit/README.md). |
+
+**README vs spec:** `docs/features/<slug>/README.md` = why/outcomes (no API secrets). `.spec-kit` spec = routes, models, state machine, tests, security boundaries.
+
 ## Security — OWASP-aligned development (mandatory)
 
 All new and changed code in **All Blue Core** MUST follow [OWASP Top 10](https://owasp.org/www-project-top-ten/) thinking across **API, storefront, storage, and ops**. Security is not a post-merge pass; it is part of every feature design and review.

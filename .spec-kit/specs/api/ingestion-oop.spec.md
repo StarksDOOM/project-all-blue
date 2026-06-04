@@ -1,8 +1,9 @@
 # Spec: Ingestion OOP Architecture — FastAPI Data Acquisition
 
-## Status: IMPLEMENTED (V2 full crawl requires Manual Success / AdsPower)
+## Status: SHIPPED (V2 full crawl requires Manual Success / AdsPower)
 **Roadmap:** STREAM 2 PHASE 4.1  
-**Branch:** `feat/ingestion-oop-refactor` ← `develop`  
+**Branch:** `develop`  
+**Feature README:** `docs/features/STREAM-2-PHASE-4.1-ingestion-oop/`
 **App:** `apps/api-fastapi/`  
 **Replaces:** Procedural `run_portal_sync` + `RemaxRDScraper` + inline `get_scraper_driver()`
 
