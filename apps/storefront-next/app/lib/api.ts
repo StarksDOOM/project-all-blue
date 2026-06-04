@@ -368,6 +368,9 @@ export const api = {
     return response.json();
   },
 
+  auditCertificateDownloadUrl: (transactionId: string): string =>
+    `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/audit-certificate`,
+
   getSigningConfig: async (): Promise<{
     provider: "docusign" | "internal";
     docusign_configured: boolean;

@@ -70,3 +70,56 @@ def envelope_id_from_event(event: dict[str, Any]) -> str | None:
         if isinstance(eid, str):
             return eid
     return None
+
+
+def _normalize_signer_block(raw: dict[str, Any], *, fallback_role: str) -> dict[str, str]:
+    name = str(raw.get("name") or raw.get("userName") or "—")
+    email = str(raw.get("email") or raw.get("emailAddress") or "—")
+    signed_at = (
+        raw.get("signedDateTime")
+        or raw.get("signed_at")
+        or raw.get("completedDateTime")
+        or "—"
+    )
+    role = str(raw.get("roleName") or raw.get("role") or fallback_role)
+    return {
+        "role": role,
+        "name": name,
+        "email": email,
+        "signed_at": str(signed_at),
+    }
+
+
+def extract_signer_metadata_from_event(event: dict[str, Any]) -> dict[str, dict[str, str]]:
+    """
+    Parse buyer/seller signing metadata from Connect JSON for audit certificate layout.
+    """
+    summary = event.get("envelopeSummary")
+    if not isinstance(summary, dict):
+        summary = event
+
+    recipients = summary.get("recipients") if isinstance(summary.get("recipients"), dict) else {}
+    signers = recipients.get("signers") if isinstance(recipients.get("signers"), list) else []
+
+    buyer: dict[str, str] | None = None
+    seller: dict[str, str] | None = None
+
+    for index, signer in enumerate(signers):
+        if not isinstance(signer, dict):
+            continue
+        role_label = str(signer.get("roleName") or "").lower()
+        block = _normalize_signer_block(
+            signer,
+            fallback_role="Buyer" if index == 0 else "Seller",
+        )
+        if "buyer" in role_label or index == 0:
+            buyer = block
+        elif "seller" in role_label or index == 1:
+            seller = block
+
+    if buyer is None:
+        buyer = {"role": "Buyer", "name": "—", "email": "—", "signed_at": "—"}
+    if seller is None:
+        seller = {"role": "Seller", "name": "—", "email": "—", "signed_at": "—"}
+
+    return {"buyer": buyer, "seller": seller}

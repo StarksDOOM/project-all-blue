@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request, status
 from sqlmodel import Session
 
 from config.docusign_settings import get_docusign_settings
@@ -19,6 +19,7 @@ from services.docusign.webhook import (
     verify_connect_hmac,
 )
 from services.docusign_orchestrator import apply_connect_event
+from services.post_execution_pipeline import run_post_execution_pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ def signing_config() -> dict:
 @router.post("/docusign/connect/webhook", status_code=status.HTTP_200_OK)
 async def docusign_connect_webhook(
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_db_session),
     x_docusign_signature_1: str | None = Header(default=None, alias="X-DocuSign-Signature-1"),
 ) -> dict[str, str]:
@@ -56,11 +58,18 @@ async def docusign_connect_webhook(
         envelope_status = envelope_status_from_event(event)
         if not envelope_id or not envelope_status:
             continue
-        apply_connect_event(
+        result = apply_connect_event(
             session,
             envelope_id=envelope_id,
             envelope_status=envelope_status,
+            connect_event=event,
         )
+        if result and result.became_executed:
+            background_tasks.add_task(
+                run_post_execution_pipeline,
+                result.transaction_id,
+                event,
+            )
         processed += 1
         logger.info(
             "Connect processed envelope_id=%s status=%s",

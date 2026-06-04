@@ -22,6 +22,7 @@ from database import (
     ensure_contract_schema,
     ensure_ingestion_schema,
     ensure_docusign_schema,
+    ensure_phase6_schema,
     ensure_phase5_schema,
     ensure_transaction_schema,
     init_db,
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
     ensure_transaction_schema()
     ensure_phase5_schema()
     ensure_docusign_schema()
+    ensure_phase6_schema()
     yield
 
 

@@ -6,6 +6,8 @@ import { useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 
+import { TransactionAuditActions } from "@/components/transactions/TransactionAuditActions";
+import { TransactionExecutionTimeline } from "@/components/transactions/TransactionExecutionTimeline";
 import { TransactionSigningPanel } from "@/components/transactions/TransactionSigningPanel";
 import { api } from "@/lib/api";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -98,7 +100,11 @@ export default function TransactionContractPreviewPage() {
         ) : null}
 
         {data ? (
-          <TransactionSigningPanel contract={data} transactionId={transactionId} />
+          <>
+            <TransactionExecutionTimeline contract={data} />
+            <TransactionAuditActions contract={data} transactionId={transactionId} />
+            <TransactionSigningPanel contract={data} transactionId={transactionId} />
+          </>
         ) : null}
 
         {data ? (

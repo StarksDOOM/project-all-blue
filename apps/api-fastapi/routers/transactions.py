@@ -12,12 +12,12 @@ import logging
 
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from fastapi.responses import FileResponse, PlainTextResponse
 from sqlmodel import Session
 
 from database import get_db_session
-from models import SignatureRole
+from models import SignatureRole, TransactionSessionStatus
 from schemas.docusign import (
     DocusignEnvelopeCreateResponse,
     DocusignSigningUrlRequest,
@@ -33,6 +33,7 @@ from services.docusign_orchestrator import (
     create_docusign_envelope,
     get_embedded_signing_url,
 )
+from services.post_execution_pipeline import run_post_execution_pipeline
 from services.signature_service import execute_signature, generate_secure_pdf
 from services.transaction_service import (
     contract_to_dict,
@@ -139,6 +140,7 @@ def execute_contract_signature(
     transaction_id: str,
     payload: SignatureExecuteRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_db_session),
 ) -> dict:
     """Capture BUYER or SELLER digital signature with tamper-evidence checks."""
@@ -149,6 +151,11 @@ def execute_contract_signature(
         role,
         request,
     )
+    if (
+        transaction.status == TransactionSessionStatus.EXECUTED
+        and not contract.audit_certificate_path
+    ):
+        background_tasks.add_task(run_post_execution_pipeline, transaction_id, None)
     return contract_to_dict(contract, transaction, property_listing)
 
 
@@ -186,6 +193,36 @@ def create_transaction_docusign_signing_url(
         transaction_id,
         role,
         payload.return_url,
+    )
+
+
+@router.get("/{transaction_id}/audit-certificate")
+def download_audit_certificate(
+    transaction_id: str,
+    session: Session = Depends(get_db_session),
+) -> FileResponse:
+    """Stream the post-execution audit certificate PDF (EXECUTED transactions only)."""
+    from fastapi import HTTPException
+    from models import TransactionSessionStatus
+
+    transaction, contract, _ = get_latest_legal_contract(session, transaction_id)
+    if transaction.status != TransactionSessionStatus.EXECUTED:
+        raise HTTPException(
+            status_code=404,
+            detail="Audit certificate is available only for EXECUTED transactions",
+        )
+    if not contract.audit_certificate_path:
+        raise HTTPException(
+            status_code=404,
+            detail="Audit certificate not yet generated",
+        )
+    cert_path = Path(contract.audit_certificate_path)
+    if not cert_path.is_file():
+        raise HTTPException(status_code=404, detail="Audit certificate file not found on disk")
+    return FileResponse(
+        path=cert_path,
+        media_type="application/pdf",
+        filename=cert_path.name,
     )
 
 
