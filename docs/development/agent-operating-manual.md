@@ -49,3 +49,15 @@ See `code-review-graph.md`. Run `code_review_graph update` (or `build` when stal
 ## Security — OWASP
 
 See `engineering-directives.md` § Security — OWASP-aligned development.
+
+## Python OOP & Documentation Standards
+
+See `engineering-directives.md` § Python OOP & Documentation Standards (mandatory for all `apps/api-fastapi` work).
+
+All domain logic must be class-based (inheritance + composition). Every module, class, and public method requires complete, accurate PEP 257 documentation updated in the same change. Thin orchestrators only; behavior belongs in classes.
+
+## Internal Framework Creep Monitoring (CRG-driven)
+
+See `engineering-directives.md` § Monitoring Internal Framework Creep with CRG.
+
+Use CRG (CLI updates + MCP tools like get_minimal_context_tool with framework assessment task, query_graph_tool for children_of/inheritors_of on base/orchestrator classes) to monitor growth of the custom OOP layer. Trigger assessment for formalization (small internal core/ framework with base classes) when signals appear (multiple similar orchestrators/engines, duplicated patterns). Only formalize after explicit user approval. This is now a standing monitoring responsibility.

@@ -198,6 +198,80 @@ def ensure_ingestion_schema() -> None:
         connection.commit()
 
 
+def ensure_saved_searches_schema() -> None:
+    """
+    Additive DDL for STREAM 5 PHASE 3.0 Saved Searches & Match Notification Engine.
+
+    - saved_search_alerts: user persisted filter matrix (filters_json stores canonical Phase 2 shape)
+    - saved_search_matches: structured hits written by search_match_engine post-ingestion insert
+    Safe to run repeatedly (IF NOT EXISTS + ALTER ADD IF NOT EXISTS for upgrade safety on test/dev DBs).
+    """
+    create_statements = [
+        """
+        CREATE TABLE IF NOT EXISTS real_estate.saved_search_alerts (
+            id VARCHAR PRIMARY KEY,
+            tenant_id VARCHAR NOT NULL DEFAULT 'tenant_all_blue',
+            user_id VARCHAR NOT NULL,
+            title VARCHAR(80) NOT NULL,
+            filters_json JSONB NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            last_matched_at TIMESTAMPTZ,
+            server_version INTEGER NOT NULL DEFAULT 1,
+            last_modified BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+            deleted_at TIMESTAMPTZ
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS real_estate.saved_search_matches (
+            id VARCHAR PRIMARY KEY,
+            tenant_id VARCHAR NOT NULL DEFAULT 'tenant_all_blue',
+            saved_search_alert_id VARCHAR NOT NULL
+                REFERENCES real_estate.saved_search_alerts(id),
+            property_id VARCHAR NOT NULL
+                REFERENCES real_estate.properties(id),
+            matched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            match_details JSONB NOT NULL DEFAULT '{}',
+            server_version INTEGER NOT NULL DEFAULT 1,
+            last_modified BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000),
+            deleted_at TIMESTAMPTZ
+        )
+        """,
+    ]
+    alter_statements = [
+        # Safety for test DBs or partial prior runs where table existed before model/DDL stabilized
+        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS tenant_id VARCHAR",
+        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS server_version INTEGER",
+        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS last_modified BIGINT",
+        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS tenant_id VARCHAR",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS server_version INTEGER",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS last_modified BIGINT",
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
+    ]
+    index_statements = [
+        """
+        CREATE INDEX IF NOT EXISTS ix_saved_search_alerts_user_active
+        ON real_estate.saved_search_alerts (user_id, is_active)
+        WHERE deleted_at IS NULL
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_saved_search_matches_alert_matched
+        ON real_estate.saved_search_matches (saved_search_alert_id, matched_at DESC)
+        WHERE deleted_at IS NULL
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_saved_search_matches_property
+        ON real_estate.saved_search_matches (property_id)
+        WHERE deleted_at IS NULL
+        """,
+    ]
+    with engine.connect() as connection:
+        for statement in create_statements + alter_statements + index_statements:
+            connection.execute(text(statement))
+        connection.commit()
+
+
 def ensure_contract_schema() -> None:
     """Apply additive column migrations for srl_contracts on existing databases."""
     column_statements = [
@@ -230,6 +304,7 @@ def init_db() -> None:
     ensure_phase5_schema()
     ensure_docusign_schema()
     ensure_phase6_schema()
+    ensure_saved_searches_schema()
 
 
 def get_db_session() -> Generator[Session, None, None]:

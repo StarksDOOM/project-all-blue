@@ -25,6 +25,7 @@ from models import IngestionSyncJob, PropertyListing, SyncJobStatus
 from scrapers.drivers.base_driver import BaseDriver
 from scrapers.driver_factory import DriverFactory
 from services.remax_detail_enrichment import enrich_remax_listings_batch
+from services.search_match_engine import evaluate_property_against_alerts
 
 logger = logging.getLogger(__name__)
 
@@ -216,13 +217,29 @@ class IngestionOrchestrator:
             updated_total += metrics["updated"]
             self._db_session.commit()
 
+            # STREAM 5 PHASE 3.0: evaluate newly inserted properties against active alerts.
+            # Runs after per-chunk commit so FKs are valid; errors are logged but do not
+            # fail the ingestion job (isolated best-effort).
+            for prop in metrics.get("inserted_listings", []):
+                try:
+                    evaluate_property_against_alerts(prop, self._db_session)
+                except Exception:
+                    logger.exception(
+                        "search_match_engine failed for inserted property id=%s remote=%s",
+                        getattr(prop, "id", None),
+                        getattr(prop, "remote_id", None),
+                    )
+
         return {"inserted": inserted_total, "updated": updated_total}
 
-    def _upsert_chunk(self, chunk: list[PropertyListing]) -> dict[str, int]:
+    def _upsert_chunk(self, chunk: list[PropertyListing]) -> dict[str, Any]:
         """
         PostgreSQL INSERT .. ON CONFLICT (source_portal, remote_id) DO UPDATE.
 
         Requires unique index uq_properties_source_portal_remote_id (ensure_ingestion_schema).
+
+        Returns inserted/updated counts + the actual inserted listing objects
+        (for Phase 3 saved-search match evaluation after this chunk's commit).
         """
         if not chunk:
             return {"inserted": 0, "updated": 0}
@@ -236,12 +253,14 @@ class IngestionOrchestrator:
         rows: list[dict[str, Any]] = []
         inserted = 0
         updated = 0
+        inserted_listings: list[PropertyListing] = []
 
         for listing in chunk:
             if listing.remote_id in existing_ids:
                 updated += 1
             else:
                 inserted += 1
+                inserted_listings.append(listing)
             rows.append(self._listing_to_row(listing, now_ms))
 
         table = PropertyListing.__table__  # type: ignore[attr-defined]
@@ -261,7 +280,11 @@ class IngestionOrchestrator:
             set_=update_map,
         )
         self._db_session.execute(upsert_stmt)
-        return {"inserted": inserted, "updated": updated}
+        return {
+            "inserted": inserted,
+            "updated": updated,
+            "inserted_listings": inserted_listings,
+        }
 
     def _listing_to_row(self, listing: PropertyListing, now_ms: int) -> dict[str, Any]:
         """

@@ -18,3 +18,8 @@ export const propertyKeys = {
   detail: (id: string, mode: "cached" | "portal") =>
     ["property-detail", id, mode] as const,
 };
+
+export const savedSearchKeys = {
+  all: ["saved-searches"] as const,
+  list: (userId: string) => [...savedSearchKeys.all, "list", userId] as const,
+};

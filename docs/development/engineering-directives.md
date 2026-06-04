@@ -20,18 +20,83 @@ When work touches architecture spanning multiple apps, docs, or schemas, **check
 
 Until then, stay on CRG.
 
-## Code comments (required where necessary)
+## Python OOP & Documentation Standards (mandatory for apps/api-fastapi)
 
-When writing or changing production code in this repo:
+**All Python code** written or modified under `apps/api-fastapi/` **MUST** be implemented using strict object-oriented programming and must be comprehensively documented. This is a ZERO-TOLERANCE rule, extending the precedent established by the `ingestion-oop` phase (STREAM 2 PHASE 4.1).
 
-- Add **module-level** docstrings for packages and orchestration entry points (`services/`, `scrapers/drivers/`, routers).
-- Add **class and public method** docstrings (purpose, inputs, outputs, raised errors, side effects).
-- Add **inline comments** only for non-obvious logic: business rules (e.g. DOP/USD, portal keys), concurrency, retries, idempotency/upsert keys, security boundaries, and integration quirks (AdsPower, pagination fields).
-- Do **not** narrate obvious code (`# increment i`). Prefer clearer names over comments when that suffices.
-- Keep comments accurate when behavior changes; remove stale comments in the same edit.
-- Match existing file style (Python: PEP 257; TypeScript: JSDoc on exported APIs).
+### OOP Requirements
+- **Core logic is always OOP.** Domain behavior, business rules, state machines, pipelines, evaluators, scrapers, enrichment, notification engines, and orchestration **must** live inside classes. Large free functions, procedural scripts, or "god modules" of top-level functions are not allowed for production logic.
+- Use **inheritance** for is-a relationships and shared implementation (e.g. `BaseDriver`, `AllBlueBaseModel`).
+- Use **composition** and delegation for has-a / uses-a relationships (orchestrators own sessions, drivers, and services rather than inheriting everything).
+- Define **interfaces** explicitly using `abc.ABC` or `typing.Protocol` when multiple implementations exist or are expected in the future.
+- **Encapsulate state.** Keep mutable state inside class instances. Avoid module-level mutable singletons, globals, or passing raw dicts/JSON around when a proper model, dataclass, or value object provides better encapsulation and validation.
+- **Routers, CLI scripts, and `main.py` are thin.** They perform dependency wiring, request parsing, and delegation only. All interesting behavior lives in service/orchestrator/engine classes.
+- When extending behavior (new match strategies, notification channels, scraper drivers, etc.), introduce new classes or use the Strategy / Template Method / Factory patterns instead of growing long conditional blocks inside existing functions.
+- Small pure helper functions are permitted **only** if they are:
+  - Private (`_prefixed`)
+  - Trivially testable in isolation
+  - Called exclusively from within a class method
+- The `search_match_engine`, `property_list_service`, `sync_service`, scraper drivers, and all future engines/services must be class-based (or provide a clear class façade) even when they expose a simple function entry point for convenience.
 
-Spec-kit and walkthroughs do not replace in-code documentation for maintainers.
+### Documentation Requirements (PEP 257 — mandatory on every edit)
+- **Module docstring** (required for every non-`__init__.py` file): Describe the module's responsibility, the primary classes it exports, the public API surface, thread-safety / background usage notes, and integration points (e.g. "Invoked by `IngestionOrchestrator` immediately after a successful chunk commit for newly inserted rows.").
+- **Class docstrings** (every class): Must cover:
+  - Purpose and single responsibility
+  - Lifecycle (construction, usage, cleanup)
+  - Thread / concurrency / transaction safety notes (critical for ingestion background threads)
+  - Key collaborators and dependencies
+  - Any important invariants or side effects
+- **Public method and `__init__` docstrings**: Document parameters, return type/value, exceptions that can be raised, and observable side effects. Include "Raises:", "Returns:", and "Side effects:" sections where applicable.
+- **Private methods** (`_foo`): Add a docstring whenever the implementation or contract is non-obvious.
+- **Inline comments**: Extremely sparing. Use only to explain *why* for non-obvious business rules (price derivation, portal quirks, security boundaries, retry semantics, etc.). Never explain what the next line of code does.
+- **Accuracy on change**: Every edit that changes behavior **must** update or delete the corresponding docstrings and comments in the same change. Stale documentation is a defect.
+- Style: Follow PEP 257. Within a single file or package, be internally consistent (Google-style and NumPy-style are both acceptable if the file doesn't mix them).
+
+Spec-kit, feature READMEs, and this document do **not** replace in-code documentation. Maintainers must be able to understand a class or module from its docstrings alone.
+
+Violations of the OOP or documentation rules are treated with the same severity as security or Spec-Kit violations: the change is incomplete until fixed.
+
+## Monitoring Internal Framework Creep with CRG
+
+The OOP mandate is causing the project to grow a rich internal application architecture on top of FastAPI (IngestionOrchestrator + Driver ABC + Factory, SearchMatchEngine, RealtimeBroadcaster, DocusignOrchestrator, PostExecutionPipeline, various *Service classes, observability hooks, schema layers, etc.). This is valuable for the complexity of background workers, pluggable scrapers, faceted matching, signing pipelines, and realtime sync.
+
+However, we must **not** let this become an accidental custom framework without conscious decision.
+
+**Agent duty (ongoing):** Use the CRG index as an objective sensor for when the layer is maturing into something that deserves formalization (base classes, dedicated package, architecture docs).
+
+**CRG-based monitoring protocol (execute on relevant triggers):**
+1. Always run `C:\Python313\python.exe -m code_review_graph update` after touching services/, scrapers/, models, or adding orchestration logic (already required).
+2. Immediately after, or when starting work on new pipelines/engines, invoke MCP tools (first `search_tool` for schema if needed):
+   - `get_minimal_context_tool` with task describing "assess oop framework layer / orchestrator engine growth".
+   - `query_graph_tool` with patterns such as `children_of` (target a services/*.py or scrapers/drivers/base_driver.py), `inheritors_of` (target BaseDriver or similar).
+   - `get_impact_radius_tool` on key files like sync_service.py, search_match_engine.py, driver_factory.py.
+3. Also run CLI `code_review_graph status` and observe node/edge growth in the services + scrapers communities.
+4. Look specifically for:
+   - Rising count of classes whose names contain Orchestrator|Engine|Pipeline|Base|Factory|Registry.
+   - Similar structural patterns (session in __init__, lifecycle methods, ensure_* calls, commit isolation).
+   - High fan-in/fan-out from a small set of core classes.
+   - New features copying structure from existing orchestrators/engines.
+
+**Assessment & escalation triggers:**
+- When adding the Nth similar abstraction (roughly when you have 4–6 independent *Orchestrator/*Engine classes with overlapping concerns).
+- When the agent finds itself wanting to extract a shared base "just for this one" or when copy-paste of lifecycle/session handling appears.
+- At the start of any new STREAM that involves background/async coordination or saved-state + matching (like Phase 3 saved-searches-alerts).
+- When CRG communities or impact graphs start showing a distinct "orchestration core" separate from domain models and HTTP routers.
+
+**What to do when the signal is strong:**
+- Do **not** create BaseOrchestrator / core/ package yet.
+- Document the current state (using CRG data + file list) in your reasoning.
+- Propose formalization to the user (e.g. "CRG now shows 7 orchestration-style classes with duplicated session + lifecycle patterns. Time to assess extracting a small internal framework?").
+- If approved ("Go"), then:
+  - Create a design for the minimal core (base classes, common utilities, package layout).
+  - Update this section, the Python OOP directive, and Agents.md.
+  - Refactor incrementally (one orchestrator/engine at a time).
+  - Add the new structure to .spec-kit if it affects a feature.
+- Until then, continue with explicit classes following the OOP rules, but keep them project-specific rather than "framework-ready".
+
+**Goal:** Deliberate, user-approved evolution into (or away from) a small internal framework. CRG provides the data-driven early warning instead of relying on the agent's subjective feeling.
+
+Update this section whenever a formalization decision is made.
 
 ## Spec-Kit enforcement (mandatory for every feature)
 

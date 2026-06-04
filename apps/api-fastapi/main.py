@@ -4,8 +4,9 @@ All Blue Core — FastAPI entrypoint.
 Mounts:
   - properties router (listings + trigger-crawl)
   - contracts router (SRL draft engine)
+  - saved_searches router (STREAM 5 PHASE 3.0 alerts)
 
-Startup ensures Postgres schema, contract migrations, and ingestion unique index.
+Startup ensures Postgres schema, contract migrations, ingestion unique index, and saved search tables.
 """
 
 from __future__ import annotations
@@ -24,10 +25,11 @@ from database import (
     ensure_docusign_schema,
     ensure_phase6_schema,
     ensure_phase5_schema,
+    ensure_saved_searches_schema,
     ensure_transaction_schema,
     init_db,
 )
-from routers import admin, contracts, docusign, properties, realtime, transactions
+from routers import admin, contracts, docusign, properties, realtime, saved_searches, transactions
 
 # Load DATABASE_URL, CORS_ORIGINS, ADSPOWER_* from apps/api-fastapi/.env
 load_dotenv()
@@ -57,6 +59,7 @@ async def lifespan(app: FastAPI):
     ensure_phase5_schema()
     ensure_docusign_schema()
     ensure_phase6_schema()
+    ensure_saved_searches_schema()
     yield
 
 
@@ -80,6 +83,7 @@ app.include_router(admin.router)
 app.include_router(transactions.router)
 app.include_router(docusign.router)
 app.include_router(realtime.router)
+app.include_router(saved_searches.router)
 
 
 @app.get("/health")
