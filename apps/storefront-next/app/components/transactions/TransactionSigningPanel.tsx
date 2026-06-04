@@ -2,12 +2,20 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileCheck, Lock, ShieldCheck } from "lucide-react";
-import { useState } from "react";
-
 import { api } from "@/lib/api";
+import { signingKeys, transactionKeys } from "@/lib/query-keys";
 import { LegalContractRecord } from "@/lib/types";
 import type { SignatureRole } from "@/lib/transaction-types";
-import { DocuSignEmbeddedSigning } from "@/components/transactions/DocuSignEmbeddedSigning";
+import dynamic from "next/dynamic";
+import { useState } from "react";
+
+const DocuSignEmbeddedSigning = dynamic(
+  () =>
+    import("@/components/transactions/DocuSignEmbeddedSigning").then(
+      (mod) => mod.DocuSignEmbeddedSigning
+    ),
+  { ssr: false, loading: () => <p className="text-sm text-muted-foreground">Cargando DocuSign…</p> }
+);
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -42,8 +50,10 @@ export function TransactionSigningPanel({
   const isExecuted = txn.status === "EXECUTED";
   const hasDocusignEnvelope = Boolean(contract.docusign_envelope_id);
 
+  const [showDocuSignCeremony, setShowDocuSignCeremony] = useState(false);
+
   const { data: signingConfig } = useQuery({
-    queryKey: ["signing-config"],
+    queryKey: signingKeys.config(),
     queryFn: () => api.getSigningConfig(),
     staleTime: 60_000,
   });
@@ -53,7 +63,7 @@ export function TransactionSigningPanel({
     process.env.NEXT_PUBLIC_SIGNING_PROVIDER === "docusign";
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["transaction-contract", transactionId] });
+    queryClient.invalidateQueries({ queryKey: transactionKeys.contract(transactionId) });
   };
 
   const pdfMutation = useMutation({
@@ -139,14 +149,27 @@ export function TransactionSigningPanel({
               {pdfMutation.isPending ? "Generando PDF…" : "Generar PDF seguro"}
             </Button>
           ) : useDocuSign ? (
-            <DocuSignEmbeddedSigning
-              transactionId={transactionId}
-              hasEnvelope={hasDocusignEnvelope}
-              buyerSigned={buyerSigned}
-              sellerSigned={sellerSigned}
-              isExecuted={isExecuted}
-              onEnvelopeCreated={invalidate}
-            />
+            <>
+              {!showDocuSignCeremony ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowDocuSignCeremony(true)}
+                  disabled={!hasPdf || isExecuted}
+                >
+                  Abrir módulo DocuSign
+                </Button>
+              ) : (
+                <DocuSignEmbeddedSigning
+                  transactionId={transactionId}
+                  hasEnvelope={hasDocusignEnvelope}
+                  buyerSigned={buyerSigned}
+                  sellerSigned={sellerSigned}
+                  isExecuted={isExecuted}
+                  onEnvelopeCreated={invalidate}
+                />
+              )}
+            </>
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
