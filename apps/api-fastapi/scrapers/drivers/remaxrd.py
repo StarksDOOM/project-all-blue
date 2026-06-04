@@ -23,7 +23,7 @@ from scrapers.drivers.base_driver import BaseDriver
 from scrapers.remax_detail_scraper import build_remax_portal_url
 from scrapers.utils.normalization import (
     CHROME_USER_AGENT,
-    combine_bathrooms,
+    resolve_bathroom_count,
     resolve_prices_usd_dop,
     safe_float,
     safe_int,
@@ -231,7 +231,12 @@ class RemaxRdDriver(BaseDriver):
         status = str(item.get("status") or "")
 
         bedrooms = safe_int(item.get("bedrooms"), default=0)
-        bathrooms = combine_bathrooms(item.get("bathrooms"), item.get("half_bathrooms"))
+        description_raw = item.get("description")
+        bathrooms = resolve_bathroom_count(
+            item.get("bathrooms"),
+            item.get("half_bathrooms"),
+            description_raw if isinstance(description_raw, str) else None,
+        )
 
         sqm_construction = safe_float(item.get("sqm_construction"), default=0.0)
         sqm_land = safe_float(item.get("sqm_land"), default=0.0)
