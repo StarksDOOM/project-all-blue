@@ -21,7 +21,13 @@ export default function Home() {
           <CardHeader className="px-0">
             <CardTitle className="text-2xl">Property Dashboard</CardTitle>
             <CardDescription>
-              Browse synced RE/MAX inventory with server-side pagination.
+              Browse synced RE/MAX inventory with server-side pagination.{" "}
+              <a
+                href="/admin/scraper-errors"
+                className="font-medium text-slate-700 underline-offset-4 hover:underline"
+              >
+                Scraper telemetry
+              </a>
             </CardDescription>
           </CardHeader>
         </Card>

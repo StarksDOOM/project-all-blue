@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PortalOriginalLink } from "@/components/properties/PortalOriginalLink";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getPropertyDetail } from "@/lib/api";
 import {
   formatPrimaryPrice,
@@ -124,11 +125,15 @@ export default function PropertyDetailPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
 
-  const { data: property, isLoading, isError, error } = useQuery({
+  const { data: detailResult, isLoading, isError, error } = useQuery({
     queryKey: ["property-detail", propertyId],
     queryFn: () => getPropertyDetail(propertyId),
     enabled: propertyId.length > 0,
   });
+
+  const property = detailResult?.property ?? null;
+  const portalRefreshFailed = detailResult?.portalRefreshFailed ?? false;
+  const portalRefreshMessage = detailResult?.portalRefreshMessage;
 
   const handleOpenContractDrawer = () => {
     if (!property) {
@@ -173,6 +178,16 @@ export default function PropertyDetailPage() {
         {property ? (
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
             <div className="min-w-0 flex-1 space-y-6">
+              {portalRefreshFailed ? (
+                <Alert variant="warning">
+                  <AlertTitle>Sincronización con portal no disponible</AlertTitle>
+                  <AlertDescription>
+                    {portalRefreshMessage ??
+                      "Live portal sync failed; displaying last known data."}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
               <header className="space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">

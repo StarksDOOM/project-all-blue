@@ -62,6 +62,30 @@ export interface PropertyListingApiRow {
   tenant_id?: string;
   server_version?: number;
   deleted_at?: string | null;
+  portal_refresh_failed?: boolean;
+  portal_refresh_message?: string | null;
+}
+
+export interface ScraperErrorLogRow {
+  id: string;
+  remote_id: string | null;
+  url: string | null;
+  scraper_method: string;
+  error_type: string;
+  stack_trace: string;
+  resolved: boolean;
+  created_at: string;
+}
+
+export interface ScraperErrorListResponse {
+  data: ScraperErrorLogRow[];
+  total: number;
+}
+
+export interface PropertyDetailResult {
+  property: PropertyListing;
+  portalRefreshFailed: boolean;
+  portalRefreshMessage: string | null;
 }
 
 export interface PropertiesQueryParams {
