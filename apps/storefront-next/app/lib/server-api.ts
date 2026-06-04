@@ -59,6 +59,13 @@ export async function fetchPropertiesPage(
   if (params.limit != null) search.set("limit", String(params.limit));
   if (params.source_portal) search.set("source_portal", params.source_portal);
   if (params.sector) search.set("sector", params.sector);
+  if (params.keyword) search.set("q", params.keyword);
+  if (params.price_min != null) search.set("price_min", String(params.price_min));
+  if (params.price_max != null) search.set("price_max", String(params.price_max));
+  if (params.bedrooms_min != null) search.set("beds", String(params.bedrooms_min));
+  if (params.bathrooms_min != null) search.set("baths", String(params.bathrooms_min));
+  if (params.property_type) search.set("type", params.property_type);
+  if (params.agency) search.set("agency", params.agency);
   if (params.include_total != null) {
     search.set("include_total", String(params.include_total));
   }

@@ -93,6 +93,13 @@ export interface PropertiesQueryParams {
   limit?: number;
   source_portal?: string;
   sector?: string;
+  keyword?: string;
+  price_min?: number;
+  price_max?: number;
+  bedrooms_min?: number;
+  bathrooms_min?: number;
+  property_type?: BusinessTypeFilter;
+  agency?: string;
   /** When false, API skips COUNT(*) and uses has_next (faster page changes). */
   include_total?: boolean;
 }
