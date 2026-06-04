@@ -66,6 +66,15 @@ def _bootstrap_schema() -> None:
     init_db()
 
 
+@pytest.fixture(autouse=True)
+def _default_internal_signing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Phase 5 signature tests use internal provider unless test_docusign overrides."""
+    monkeypatch.setenv("DOCUSIGN_PROVIDER", "")
+    from config.docusign_settings import get_docusign_settings
+
+    get_docusign_settings.cache_clear()
+
+
 @pytest.fixture()
 def db_session() -> Generator[Session, None, None]:
     """Transactional session; rolls back after each test to avoid polluting inventory."""

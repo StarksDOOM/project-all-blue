@@ -18,11 +18,20 @@ from sqlmodel import Session
 
 from database import get_db_session
 from models import SignatureRole
+from schemas.docusign import (
+    DocusignEnvelopeCreateResponse,
+    DocusignSigningUrlRequest,
+    DocusignSigningUrlResponse,
+)
 from schemas.transactions import (
     LegalContractResponse,
     SignatureExecuteRequest,
     TransactionCreateRequest,
     TransactionResponse,
+)
+from services.docusign_orchestrator import (
+    create_docusign_envelope,
+    get_embedded_signing_url,
 )
 from services.signature_service import execute_signature, generate_secure_pdf
 from services.transaction_service import (
@@ -141,6 +150,43 @@ def execute_contract_signature(
         request,
     )
     return contract_to_dict(contract, transaction, property_listing)
+
+
+@router.post(
+    "/{transaction_id}/docusign/envelope",
+    response_model=DocusignEnvelopeCreateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_transaction_docusign_envelope(
+    transaction_id: str,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    """Upload sealed PDF to DocuSign and start embedded signing envelope."""
+    transaction, contract, _ = create_docusign_envelope(session, transaction_id)
+    return {
+        "envelope_id": contract.docusign_envelope_id or "",
+        "docusign_status": contract.docusign_status or "sent",
+        "transaction_id": transaction.id,
+    }
+
+
+@router.post(
+    "/{transaction_id}/docusign/signing-url",
+    response_model=DocusignSigningUrlResponse,
+)
+def create_transaction_docusign_signing_url(
+    transaction_id: str,
+    payload: DocusignSigningUrlRequest,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    """One-time embedded signing ceremony URL for BUYER or SELLER."""
+    role = SignatureRole(payload.role)
+    return get_embedded_signing_url(
+        session,
+        transaction_id,
+        role,
+        payload.return_url,
+    )
 
 
 @router.get("/{transaction_id}/contract/pdf")

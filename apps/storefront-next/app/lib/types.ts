@@ -162,6 +162,8 @@ export interface LegalContractRecord {
   document_hash?: string | null;
   pdf_file_path?: string | null;
   has_secure_pdf?: boolean;
+  docusign_envelope_id?: string | null;
+  docusign_status?: string | null;
   transaction: TransactionRecord;
   property: {
     id: string;

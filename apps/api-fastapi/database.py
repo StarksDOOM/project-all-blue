@@ -81,6 +81,22 @@ def ensure_transaction_schema() -> None:
         connection.commit()
 
 
+def ensure_docusign_schema() -> None:
+    """DocuSign envelope tracking on legal contracts."""
+    statements = [
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS docusign_envelope_id VARCHAR",
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS docusign_status VARCHAR",
+        """
+        CREATE INDEX IF NOT EXISTS ix_legal_contracts_docusign_envelope_id
+        ON real_estate.legal_contracts (docusign_envelope_id)
+        """,
+    ]
+    with engine.connect() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        connection.commit()
+
+
 def ensure_phase5_schema() -> None:
     """Phase 5: PDF tamper hash, secure PDF path, multi-party signature telemetry."""
     statements = [
@@ -178,6 +194,7 @@ def init_db() -> None:
     ensure_ingestion_schema()
     ensure_transaction_schema()
     ensure_phase5_schema()
+    ensure_docusign_schema()
 
 
 def get_db_session() -> Generator[Session, None, None]:

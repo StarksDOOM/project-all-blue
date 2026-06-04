@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import HTTPException, Request, status
 from sqlmodel import Session
 
+from config.docusign_settings import get_docusign_settings
 from models import LegalContract, SignatureRole, TransactionSession, TransactionSessionStatus
 from services.pdf_renderer import sha256_file
 from services.transaction_service import get_latest_legal_contract
@@ -110,6 +111,11 @@ def execute_signature(
     request: Request,
 ) -> tuple[TransactionSession, LegalContract, Any]:
     """Record buyer/seller signature; transition to EXECUTED when both parties signed."""
+    if get_docusign_settings().is_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="DocuSign embedded signing is enabled; use /docusign/envelope and /docusign/signing-url",
+        )
     transaction, contract, property_listing = get_latest_legal_contract(session, transaction_id)
 
     if transaction.status == TransactionSessionStatus.EXECUTED:
