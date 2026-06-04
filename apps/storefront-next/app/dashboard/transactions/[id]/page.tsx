@@ -6,6 +6,7 @@ import { useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Printer } from "lucide-react";
 
+import { useTransactionRealtime } from "@/hooks/useTransactionRealtime";
 import { TransactionAuditActions } from "@/components/transactions/TransactionAuditActions";
 import { TransactionExecutionTimeline } from "@/components/transactions/TransactionExecutionTimeline";
 import { TransactionSigningPanel } from "@/components/transactions/TransactionSigningPanel";
@@ -31,6 +32,8 @@ export default function TransactionContractPreviewPage() {
     queryFn: () => api.getTransactionContract(transactionId),
     enabled: Boolean(transactionId),
   });
+
+  useTransactionRealtime(transactionId);
 
   const handlePrint = useCallback(() => {
     window.print();
