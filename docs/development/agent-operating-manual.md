@@ -39,7 +39,7 @@ User approval (**Go**, **Stage this**) required before staging.
 ## Version control
 
 - Feature branches off `develop`.
-- Chunk commits after tests + user approval.
+- Chunk commits into **small, atomic units** after tests + user approval (per the "Small commits rule" in Agents.md — one focused change per commit, no large bundles).
 - **Clean tree before merge** — `git status` must be clean immediately before `git merge`.
 
 ## Code-review-graph (CRG)
