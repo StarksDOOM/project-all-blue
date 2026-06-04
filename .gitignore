@@ -51,4 +51,6 @@ apps/api-fastapi/scripts/peek_*.py
 apps/api-fastapi/scripts/probe_*.py
 apps/api-fastapi/storage/
 scripts/rewrite-git-emails.sh
+scripts/scrub-telemetry-readme-history.sh
+.git-scrub-telemetry-readme.md
 apps/api-fastapi/scripts/qa_*.json

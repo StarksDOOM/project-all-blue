@@ -1,6 +1,6 @@
 # Secure PDF & Multi-Party Signatures (Phase 5)
 
-**Status:** On feature branch; not yet merged to `develop`  
+**Status:** Shipped on `develop`  
 **Scope:** Sealed PDF, integrity checks, in-app buyer/seller execution
 
 This document describes **why** this work exists and **what problems it addresses**. It does **not** document hash algorithms, file paths, or signing wire formats.
