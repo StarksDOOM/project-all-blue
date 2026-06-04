@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import os
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +21,15 @@ from services.signature_service import _assert_pdf_integrity
 from services.transaction_service import get_latest_legal_contract
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ConnectApplyResult:
+    """Outcome of a Connect webhook apply — drives post-execution background work."""
+
+    transaction_id: str
+    became_executed: bool
+    envelope_id: str
 
 
 def _utcnow() -> datetime:
@@ -137,29 +147,38 @@ def apply_connect_event(
     *,
     envelope_id: str,
     envelope_status: str,
-) -> None:
+    connect_event: dict[str, Any] | None = None,
+) -> ConnectApplyResult | None:
     """Update contract/transaction from DocuSign Connect webhook."""
     contract = session.exec(
         select(LegalContract).where(LegalContract.docusign_envelope_id == envelope_id)
     ).first()
     if not contract:
         logger.warning("Connect event for unknown envelope_id=%s", envelope_id)
-        return
+        return None
 
-    contract.docusign_status = envelope_status
     transaction = session.get(TransactionSession, contract.transaction_session_id)
     if not transaction:
-        return
+        return None
 
+    was_executed = transaction.status == TransactionSessionStatus.EXECUTED
+    contract.docusign_status = envelope_status
     telemetry: dict[str, Any] = dict(transaction.signature_telemetry or {})
     docusign_meta = dict(telemetry.get("docusign", {}))
     docusign_meta["status"] = envelope_status
     docusign_meta["last_event_at"] = _utcnow().isoformat()
+
+    if connect_event and envelope_status == "completed":
+        from services.docusign.webhook import extract_signer_metadata_from_event
+
+        docusign_meta["signers"] = extract_signer_metadata_from_event(connect_event)
+
     telemetry["docusign"] = docusign_meta
     transaction.signature_telemetry = telemetry
     transaction.updated_at = _utcnow()
 
-    if envelope_status == "completed":
+    became_executed = False
+    if envelope_status == "completed" and not was_executed:
         now = _utcnow()
         if transaction.buyer_signed_at is None:
             transaction.buyer_signed_at = now
@@ -169,7 +188,14 @@ def apply_connect_event(
         docusign_meta["completed_at"] = now.isoformat()
         telemetry["docusign"] = docusign_meta
         transaction.signature_telemetry = telemetry
+        became_executed = True
 
     session.add(contract)
     session.add(transaction)
     session.commit()
+
+    return ConnectApplyResult(
+        transaction_id=transaction.id,
+        became_executed=became_executed,
+        envelope_id=envelope_id,
+    )

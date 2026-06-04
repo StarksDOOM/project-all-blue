@@ -81,6 +81,20 @@ def ensure_transaction_schema() -> None:
         connection.commit()
 
 
+def ensure_phase6_schema() -> None:
+    """Phase 6: post-execution audit certificate path on legal contracts."""
+    statements = [
+        """
+        ALTER TABLE real_estate.legal_contracts
+        ADD COLUMN IF NOT EXISTS audit_certificate_path VARCHAR
+        """,
+    ]
+    with engine.connect() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        connection.commit()
+
+
 def ensure_docusign_schema() -> None:
     """DocuSign envelope tracking on legal contracts."""
     statements = [
@@ -195,6 +209,7 @@ def init_db() -> None:
     ensure_transaction_schema()
     ensure_phase5_schema()
     ensure_docusign_schema()
+    ensure_phase6_schema()
 
 
 def get_db_session() -> Generator[Session, None, None]:
