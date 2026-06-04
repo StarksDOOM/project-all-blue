@@ -35,6 +35,52 @@ def get_current_timestamp_ms() -> int:
     return int(time.time() * 1000)
 
 
+def ensure_transaction_schema() -> None:
+    """Phase 4: transaction sessions and legal contract artifacts."""
+    statements = [
+        """
+        CREATE TABLE IF NOT EXISTS real_estate.transaction_sessions (
+            id VARCHAR PRIMARY KEY,
+            tenant_id VARCHAR NOT NULL DEFAULT 'tenant_all_blue',
+            property_id VARCHAR NOT NULL REFERENCES real_estate.properties(id),
+            buyer_name VARCHAR NOT NULL,
+            buyer_id_doc VARCHAR NOT NULL,
+            seller_name VARCHAR NOT NULL,
+            seller_id_doc VARCHAR NOT NULL,
+            agreed_price DOUBLE PRECISION NOT NULL,
+            currency VARCHAR NOT NULL DEFAULT 'USD',
+            status VARCHAR NOT NULL DEFAULT 'DRAFT',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS real_estate.legal_contracts (
+            id VARCHAR PRIMARY KEY,
+            transaction_session_id VARCHAR NOT NULL
+                REFERENCES real_estate.transaction_sessions(id),
+            file_path VARCHAR,
+            storage_url VARCHAR,
+            document_body TEXT NOT NULL DEFAULT '',
+            generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            version_hash VARCHAR NOT NULL
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_transaction_sessions_property_id
+        ON real_estate.transaction_sessions (property_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_legal_contracts_session_id
+        ON real_estate.legal_contracts (transaction_session_id)
+        """,
+    ]
+    with engine.connect() as connection:
+        for statement in statements:
+            connection.execute(text(statement))
+        connection.commit()
+
+
 def ensure_ingestion_schema() -> None:
     """
     Apply additive DDL required by STREAM 2 PHASE 4.1 ingestion.
@@ -108,6 +154,7 @@ def init_db() -> None:
     SQLModel.metadata.create_all(engine)
     ensure_contract_schema()
     ensure_ingestion_schema()
+    ensure_transaction_schema()
 
 
 def get_db_session() -> Generator[Session, None, None]:

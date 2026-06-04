@@ -9,6 +9,7 @@ Ingestion-related tables:
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
+from uuid import uuid4
 from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import SQLModel, Field, String, BigInteger
@@ -128,6 +129,68 @@ class IngestionSyncJob(AllBlueBaseModel, table=True):
     inserted: int = Field(default=0)  # New (source_portal, remote_id) rows in upsert
     updated: int = Field(default=0)  # Existing rows refreshed on conflict
     error_message: Optional[str] = Field(default=None, nullable=True)  # Set when status=FAILED
+
+
+class TransactionSessionStatus(str, Enum):
+    """Lifecycle for Phase 4 transaction → legal document pipeline."""
+
+    DRAFT = "DRAFT"
+    REVIEW = "REVIEW"
+    GENERATED = "GENERATED"
+    EXECUTED = "EXECUTED"
+
+
+class TransactionSession(SQLModel, table=True):
+    """
+    Active transaction lifecycle for a property (buyer/seller terms before legal PDF).
+
+    Uses UUID string PK per Phase 4 spec (distinct from Blu ``#BLU-`` property ids).
+    """
+
+    __tablename__ = "transaction_sessions"
+    __table_args__ = {"schema": "real_estate"}
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    tenant_id: str = Field(default="tenant_all_blue", index=True)
+    property_id: str = Field(foreign_key="real_estate.properties.id", index=True)
+    buyer_name: str
+    buyer_id_doc: str
+    seller_name: str
+    seller_id_doc: str
+    agreed_price: float
+    currency: str = Field(default="USD")
+    status: TransactionSessionStatus = Field(
+        default=TransactionSessionStatus.DRAFT,
+        index=True,
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
+
+
+class LegalContract(SQLModel, table=True):
+    """Generated legal artifact bound to one ``TransactionSession``."""
+
+    __tablename__ = "legal_contracts"
+    __table_args__ = {"schema": "real_estate"}
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    transaction_session_id: str = Field(
+        foreign_key="real_estate.transaction_sessions.id",
+        index=True,
+    )
+    file_path: Optional[str] = Field(default=None, nullable=True)
+    storage_url: Optional[str] = Field(default=None, nullable=True)
+    document_body: str = Field(default="")
+    generated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    version_hash: str = Field(index=True)
 
 
 class SRLContract(AllBlueBaseModel, table=True):
