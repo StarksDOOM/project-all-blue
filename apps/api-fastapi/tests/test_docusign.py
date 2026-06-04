@@ -32,6 +32,20 @@ def _docusign_env(monkeypatch: pytest.MonkeyPatch) -> None:
     get_docusign_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def mock_docusign_client():
+    """Provides an isolated, fully mocked representation of the DocuSign API SDK layer.
+    Matches the strict test-isolation pattern from Phase 4.1 (e.g. email mocks).
+    This prevents any live network calls to DocuSign even if a high-level patch is missed.
+    """
+    with patch("services.docusign.client.DocusignClient") as mock_class:
+        instance = mock_class.return_value
+        # Mock the authorized client to prevent any real network / JWT calls
+        mock_api_client = MagicMock()
+        instance.authorized_api_client.return_value = mock_api_client
+        yield instance
+
+
 def test_signing_config_reports_docusign(api_client: TestClient) -> None:
     response = api_client.get("/api/v1/signing/config")
     assert response.status_code == 200
@@ -57,6 +71,7 @@ def test_parse_connect_envelope_fields() -> None:
 @patch("services.docusign_orchestrator.create_envelope_from_pdf", return_value="env-mock-001")
 def test_create_docusign_envelope_persists_id(
     _mock_create: MagicMock,
+    mock_docusign_client,
     api_client: TestClient,
     seeded_property,
     db_session: Session,
@@ -92,6 +107,7 @@ def test_create_docusign_envelope_persists_id(
 def test_embedded_signing_url_endpoint(
     _mock_env: MagicMock,
     _mock_url: MagicMock,
+    mock_docusign_client,
     api_client: TestClient,
     seeded_property,
 ) -> None:
