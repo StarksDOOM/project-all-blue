@@ -17,6 +17,7 @@ No raw SQL with user data; JSONB deserialized into validated PropertyFilterParam
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 from typing import Any, TYPE_CHECKING
 
@@ -33,8 +34,8 @@ from models import (
 )
 from schemas.property_filters import PropertyFilterParams
 
-# Local imports for Phase 4 notification (avoid circular at module level)
-# In real system these would be injected.
+# Local imports for Phase 4 / 4.1 notification (avoid circular at module level)
+from services.email_client import ResendEmailProvider, StubEmailProvider
 from services.notification_compiler import NotificationCompiler
 from services.notification_dispatcher import NotificationDispatcher
 
@@ -228,15 +229,15 @@ class SearchMatchEngine:
 
                         recipient = "alerts@allblue.example"  # demo; resolve from user profile in prod
 
-                        dispatcher = NotificationDispatcher(email_client=None)  # type: ignore[arg-type]
+                        # DI for Phase 4.1: prefer Resend if configured, else safe stub.
+                        # Dispatcher now handles default internally, but explicit here
+                        # for clarity and to demonstrate production path selection.
+                        if os.getenv("RESEND_API_KEY"):
+                            provider = ResendEmailProvider()
+                        else:
+                            provider = StubEmailProvider()
 
-                        class _StubEmailClient:
-                            async def send_email(self, to: str, subject: str, html_body: str) -> bool:
-                                import logging
-                                logging.getLogger(__name__).info("STUB email sent to %s subject=%s", to, subject)
-                                return True
-
-                        dispatcher._email_client = _StubEmailClient()  # type: ignore[attr-defined]
+                        dispatcher = NotificationDispatcher(email_client=provider)
 
                         dispatcher.schedule(
                             background_tasks=background_tasks,
