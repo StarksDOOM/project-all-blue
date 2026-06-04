@@ -1,15 +1,24 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { propertyKeys } from "@/lib/query-keys";
 import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { BusinessTypeFilter, PropertyListing } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { TransactionContractModal } from "@/components/transactions/TransactionContractModal";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+const TransactionContractModal = dynamic(
+  () =>
+    import("@/components/transactions/TransactionContractModal").then(
+      (mod) => mod.TransactionContractModal
+    ),
+  { ssr: false }
+);
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,15 +72,35 @@ export function PropertyTable({
   const [sectorFilter, setSectorFilter] = useState("");
   const [businessTypeFilter, setBusinessTypeFilter] = useState<BusinessTypeFilter>("");
 
+  const { data: totalSnapshot } = useQuery({
+    queryKey: propertyKeys.total(sectorFilter),
+    queryFn: () =>
+      api.getPropertiesPage({
+        page: 1,
+        limit: PAGE_SIZE,
+        source_portal: "remaxrd",
+        sector: sectorFilter || undefined,
+        include_total: true,
+      }),
+    staleTime: 120_000,
+    gcTime: 600_000,
+  });
+
   const { data, isLoading, isError, error, isFetching } = useQuery({
-    queryKey: ["properties", currentPage, sectorFilter, businessTypeFilter],
+    queryKey: propertyKeys.list(currentPage, sectorFilter, businessTypeFilter),
     queryFn: () =>
       api.getPropertiesPage({
         page: currentPage,
         limit: PAGE_SIZE,
         source_portal: "remaxrd",
         sector: sectorFilter || undefined,
+        include_total: currentPage === 1,
       }),
+    staleTime: 60_000,
+    gcTime: 300_000,
+    refetchOnMount: false,
+    retry: 1,
+    retryDelay: 1500,
     placeholderData: (previousData) => previousData,
   });
 
@@ -84,14 +113,26 @@ export function PropertyTable({
   }, [data?.data, businessTypeFilter]);
 
   const metadata = data?.metadata;
-  const totalPages = metadata?.pages ?? 1;
+  const inventoryTotal =
+    totalSnapshot?.metadata.total ?? metadata?.total ?? null;
+  const totalPages =
+    inventoryTotal != null
+      ? Math.max(1, Math.ceil(inventoryTotal / PAGE_SIZE))
+      : metadata?.has_next
+        ? currentPage + 1
+        : currentPage;
   const canGoPrevious = currentPage > 1;
-  const canGoNext = currentPage < totalPages;
+  const canGoNext =
+    metadata?.has_next ?? (inventoryTotal != null && currentPage < totalPages);
 
   if (isLoading && !data) {
     return (
       <Card>
         <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Loading inventory from FastAPI…
+            {isFetching ? " (retrying)" : null}
+          </p>
           <Skeleton className="h-8 w-full max-w-md" />
           <Skeleton className="h-64 w-full" />
         </CardContent>
@@ -173,8 +214,15 @@ export function PropertyTable({
             {isFetching ? <span>Refreshing…</span> : null}
             {metadata ? (
               <span>
-                Page {metadata.page} of {metadata.pages} ({metadata.total.toLocaleString()}{" "}
-                total)
+                Page {metadata.page}
+                {inventoryTotal != null ? (
+                  <>
+                    {" "}
+                    of {totalPages} ({inventoryTotal.toLocaleString()} total)
+                  </>
+                ) : metadata.has_next ? (
+                  <> · more available</>
+                ) : null}
               </span>
             ) : null}
           </div>
@@ -229,6 +277,7 @@ export function PropertyTable({
                       <div className="flex flex-col items-end gap-2">
                         <Link
                           href={`/properties/${property.remote_id}`}
+                          prefetch
                           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                         >
                           Ver detalle

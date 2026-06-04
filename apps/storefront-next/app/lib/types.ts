@@ -93,13 +93,16 @@ export interface PropertiesQueryParams {
   limit?: number;
   source_portal?: string;
   sector?: string;
+  /** When false, API skips COUNT(*) and uses has_next (faster page changes). */
+  include_total?: boolean;
 }
 
 export interface PropertiesPageMetadata {
-  total: number;
+  total: number | null;
   page: number;
   limit: number;
-  pages: number;
+  pages: number | null;
+  has_next?: boolean;
 }
 
 export interface PaginatedPropertiesResponse {

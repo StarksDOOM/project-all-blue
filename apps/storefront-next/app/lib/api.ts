@@ -15,7 +15,21 @@ import type { SignatureRole } from "./transaction-types";
 import { resolveBathsForDisplay } from "./bathrooms";
 import { ensureRemaxPortalUrl } from "./portal-url";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const DEFAULT_API_PORT = "8000";
+
+/** Align API host with the storefront origin to prevent CORS / connection failures in dev. */
+export function resolveApiBaseUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const { hostname, protocol } = window.location;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return `${protocol}//${hostname}:${DEFAULT_API_PORT}`;
+    }
+  }
+  return fromEnv || `http://127.0.0.1:${DEFAULT_API_PORT}`;
+}
+
+
 
 /** Portal list currency from enriched raw_description (not the derived DOP mirror). */
 function parseCurrencyFromMeta(rawDescription: string): string | null {
@@ -143,24 +157,52 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
 /**
  * Fetch a single property by internal Blu id or portal remote_id.
  */
+function formatFetchError(error: unknown, url: string): Error {
+  if (error instanceof Error) {
+    if (error.name === "AbortError") {
+      return new Error(
+        "Property detail request timed out. Try again without live portal sync, or ensure FastAPI is running."
+      );
+    }
+    if (error.message === "Failed to fetch") {
+      return new Error(
+        `Cannot reach the API at ${resolveApiBaseUrl()}. Start FastAPI (port 8000) and use the same host as the storefront (localhost vs 127.0.0.1).`
+      );
+    }
+    return error;
+  }
+  return new Error(`Failed to fetch property detail (${url}): ${String(error)}`);
+}
+
 export async function getPropertyDetail(
   id: string | number,
-  options?: { portalUrl?: string; refreshFromPortal?: boolean }
+  options?: { portalUrl?: string; refreshFromPortal?: boolean; timeoutMs?: number }
 ): Promise<PropertyDetailResult> {
-  const resolvedId = encodeURIComponent(String(id).trim());
+  const trimmedId = String(id).trim();
+  if (!trimmedId) {
+    throw new Error("Property id is required.");
+  }
+
+  const refreshFromPortal = options?.refreshFromPortal ?? false;
+  const timeoutMs = options?.timeoutMs ?? (refreshFromPortal ? 120_000 : 30_000);
+  const resolvedId = encodeURIComponent(trimmedId);
   const search = new URLSearchParams({
-    refresh_from_portal: String(options?.refreshFromPortal ?? true),
+    refresh_from_portal: String(refreshFromPortal),
   });
   if (options?.portalUrl) {
     search.set("portal_url", options.portalUrl);
   }
-  const url = `${BASE_URL}/api/v1/properties/${resolvedId}?${search.toString()}`;
+  const url = `${resolveApiBaseUrl()}/api/v1/properties/${resolvedId}?${search.toString()}`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(url, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -168,23 +210,39 @@ export async function getPropertyDetail(
         response,
         `Failed to fetch property detail: ${response.status} ${response.statusText}`
       );
-      console.error("[getPropertyDetail]", { id, status: response.status, message, url });
+      console.error(
+        "[getPropertyDetail] HTTP error",
+        trimmedId,
+        response.status,
+        message,
+        url
+      );
       throw new Error(message);
     }
 
-    const row: PropertyListingApiRow = await response.json();
+    let row: PropertyListingApiRow;
+    try {
+      row = (await response.json()) as PropertyListingApiRow;
+    } catch {
+      throw new Error("Property detail response was not valid JSON.");
+    }
+
     return {
       property: mapPropertyListing(row),
       portalRefreshFailed: Boolean(row.portal_refresh_failed),
       portalRefreshMessage: row.portal_refresh_message ?? null,
     };
   } catch (error) {
-    if (error instanceof Error) {
-      console.error("[getPropertyDetail] request failed", { id, message: error.message, url });
-      throw error;
-    }
-    console.error("[getPropertyDetail] unknown failure", { id, url });
-    throw new Error("Failed to fetch property detail due to an unexpected error.");
+    const wrapped = formatFetchError(error, url);
+    console.error(
+      "[getPropertyDetail] request failed",
+      trimmedId,
+      wrapped.message,
+      url
+    );
+    throw wrapped;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -203,9 +261,12 @@ function buildPropertiesUrl(params: PropertiesQueryParams): string {
   if (params.sector) {
     search.set("sector", params.sector);
   }
+  if (params.include_total != null) {
+    search.set("include_total", String(params.include_total));
+  }
 
   const query = search.toString();
-  return `${BASE_URL}/api/v1/properties${query ? `?${query}` : ""}`;
+  return `${resolveApiBaseUrl()}/api/v1/properties${query ? `?${query}` : ""}`;
 }
 
 function resolvePropertyId(propertyId: string | number): string {
@@ -238,7 +299,7 @@ export const api = {
       search.set("limit", String(params.limit));
     }
     const response = await fetch(
-      `${BASE_URL}/api/admin/scraper-errors?${search.toString()}`,
+      `${resolveApiBaseUrl()}/api/admin/scraper-errors?${search.toString()}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -278,7 +339,7 @@ export const api = {
   ): Promise<ContractRecord> => {
     const resolvedId = resolvePropertyId(propertyId);
     const response = await fetch(
-      `${BASE_URL}/api/v1/contracts/initialize/${encodeURIComponent(resolvedId)}`,
+      `${resolveApiBaseUrl()}/api/v1/contracts/initialize/${encodeURIComponent(resolvedId)}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,7 +361,7 @@ export const api = {
   createTransaction: async (
     payload: TransactionCreatePayload
   ): Promise<TransactionRecord> => {
-    const response = await fetch(`${BASE_URL}/api/v1/transactions`, {
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/transactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -319,7 +380,7 @@ export const api = {
     transactionId: string
   ): Promise<LegalContractRecord> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate`,
       { method: "POST", headers: { "Content-Type": "application/json" } }
     );
     if (!response.ok) {
@@ -336,7 +397,7 @@ export const api = {
     transactionId: string
   ): Promise<LegalContractRecord> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/contract`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/contract`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -355,7 +416,7 @@ export const api = {
 
   generateTransactionPdf: async (transactionId: string): Promise<LegalContractRecord> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate-pdf`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/generate-pdf`,
       { method: "POST", headers: { "Content-Type": "application/json" } }
     );
     if (!response.ok) {
@@ -369,13 +430,13 @@ export const api = {
   },
 
   auditCertificateDownloadUrl: (transactionId: string): string =>
-    `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/audit-certificate`,
+    `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/audit-certificate`,
 
   getSigningConfig: async (): Promise<{
     provider: "docusign" | "internal";
     docusign_configured: boolean;
   }> => {
-    const response = await fetch(`${BASE_URL}/api/v1/signing/config`, {
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/signing/config`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
@@ -390,7 +451,7 @@ export const api = {
     transactionId: string
   ): Promise<{ envelope_id: string; docusign_status: string; transaction_id: string }> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/envelope`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/envelope`,
       { method: "POST", headers: { "Content-Type": "application/json" } }
     );
     if (!response.ok) {
@@ -409,7 +470,7 @@ export const api = {
     returnUrl: string
   ): Promise<{ signing_url: string; role: string; envelope_id: string }> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/signing-url`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/signing-url`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -431,7 +492,7 @@ export const api = {
     role: SignatureRole
   ): Promise<LegalContractRecord> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/execute-signature`,
+      `${resolveApiBaseUrl()}/api/v1/transactions/${encodeURIComponent(transactionId)}/execute-signature`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -450,7 +511,7 @@ export const api = {
 
   getContract: async (contractId: string): Promise<ContractRecord> => {
     const response = await fetch(
-      `${BASE_URL}/api/v1/contracts/${encodeURIComponent(contractId)}`,
+      `${resolveApiBaseUrl()}/api/v1/contracts/${encodeURIComponent(contractId)}`,
       {
         method: "GET",
         headers: { "Content-Type": "application/json" },
