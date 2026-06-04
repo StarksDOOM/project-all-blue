@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from database import engine, init_db
 from models import PropertyListing
 from services.remax_detail_enrichment import import_remax_listing_from_portal
+from tests.db_cleanup import delete_property_cascade
 
 SAMPLE_DETAIL = {
     "property_id": "222598",
@@ -45,8 +46,7 @@ def test_import_creates_row_when_missing(mock_url, mock_scrape) -> None:
             select(PropertyListing).where(PropertyListing.remote_id == "222598")
         ).first()
         if existing:
-            session.delete(existing)
-            session.commit()
+            delete_property_cascade(session, property_id=existing.id)
 
         row = import_remax_listing_from_portal(session, "222598", portal_url=portal_url)
         assert row.title == "Casa en Nisibon"

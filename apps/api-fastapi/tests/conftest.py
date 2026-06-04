@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 from database import engine, get_db_session, init_db  # noqa: E402
 from main import app  # noqa: E402
 from models import LegalContract, PropertyListing, TransactionSession  # noqa: E402
+from tests.db_cleanup import delete_property_cascade  # noqa: E402
 
 # Full PropertyListing JSON shape returned by GET /api/v1/properties/{property_id}
 PROPERTY_RESPONSE_KEYS = frozenset(
@@ -106,26 +107,8 @@ def seeded_property(db_session: Session) -> Generator[PropertyListing, None, Non
 
     yield listing
 
-    # Use a fresh session so rows committed during TestClient calls are visible for FK-safe teardown.
     with Session(engine) as cleanup:
-        sessions = cleanup.exec(
-            select(TransactionSession).where(
-                TransactionSession.property_id == listing.id
-            )
-        ).all()
-        for txn in sessions:
-            for contract in cleanup.exec(
-                select(LegalContract).where(
-                    LegalContract.transaction_session_id == txn.id
-                )
-            ).all():
-                cleanup.delete(contract)
-            cleanup.delete(txn)
-
-        row = cleanup.get(PropertyListing, listing.id)
-        if row is not None:
-            cleanup.delete(row)
-        cleanup.commit()
+        delete_property_cascade(cleanup, property_id=listing.id)
 
 
 @pytest.fixture()
