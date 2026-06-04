@@ -21,11 +21,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import (
     ensure_contract_schema,
     ensure_ingestion_schema,
+    ensure_docusign_schema,
     ensure_phase5_schema,
     ensure_transaction_schema,
     init_db,
 )
-from routers import admin, contracts, properties, transactions
+from routers import admin, contracts, docusign, properties, transactions
 
 # Load DATABASE_URL, CORS_ORIGINS, ADSPOWER_* from apps/api-fastapi/.env
 load_dotenv()
@@ -48,6 +49,7 @@ async def lifespan(app: FastAPI):
     ensure_ingestion_schema()
     ensure_transaction_schema()
     ensure_phase5_schema()
+    ensure_docusign_schema()
     yield
 
 
@@ -65,6 +67,7 @@ app.include_router(properties.router)
 app.include_router(contracts.router)
 app.include_router(admin.router)
 app.include_router(transactions.router)
+app.include_router(docusign.router)
 
 
 @app.get("/health")

@@ -223,6 +223,8 @@ def contract_to_dict(
         "document_hash": contract.document_hash,
         "pdf_file_path": contract.pdf_file_path,
         "has_secure_pdf": bool(contract.document_hash and contract.pdf_file_path),
+        "docusign_envelope_id": contract.docusign_envelope_id,
+        "docusign_status": contract.docusign_status,
         "transaction": transaction_to_dict(transaction, property_listing),
         "property": {
             "id": property_listing.id,

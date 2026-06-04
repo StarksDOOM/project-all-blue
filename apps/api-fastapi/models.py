@@ -209,6 +209,8 @@ class LegalContract(SQLModel, table=True):
     version_hash: str = Field(index=True)
     document_hash: Optional[str] = Field(default=None, nullable=True, index=True)
     pdf_file_path: Optional[str] = Field(default=None, nullable=True)
+    docusign_envelope_id: Optional[str] = Field(default=None, nullable=True, index=True)
+    docusign_status: Optional[str] = Field(default=None, nullable=True, index=True)
 
 
 class SRLContract(AllBlueBaseModel, table=True):

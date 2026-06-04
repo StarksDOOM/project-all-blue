@@ -52,5 +52,7 @@ class LegalContractResponse(BaseModel):
     document_hash: str | None = None
     pdf_file_path: str | None = None
     has_secure_pdf: bool = False
+    docusign_envelope_id: str | None = None
+    docusign_status: str | None = None
     transaction: TransactionResponse
     property: dict
