@@ -222,6 +222,10 @@ class IngestionOrchestrator:
             # fail the ingestion job (isolated best-effort).
             for prop in metrics.get("inserted_listings", []):
                 try:
+                    # Phase 4.0: background_tasks and session_factory are None here
+                    # because we are inside the orchestrator job (not request scope).
+                    # When called from a web request context that has BackgroundTasks,
+                    # the wrapper/class evaluate will schedule the email.
                     evaluate_property_against_alerts(prop, self._db_session)
                 except Exception:
                     logger.exception(

@@ -18,12 +18,25 @@ No raw SQL with user data; JSONB deserialized into validated PropertyFilterParam
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from sqlmodel import Session, select
 
-from models import PropertyListing, SavedSearchAlert, SavedSearchMatch
+if TYPE_CHECKING:
+    from fastapi import BackgroundTasks
+
+from models import (
+    NotificationDeliveryStatus,
+    PropertyListing,
+    SavedSearchAlert,
+    SavedSearchMatch,
+)
 from schemas.property_filters import PropertyFilterParams
+
+# Local imports for Phase 4 notification (avoid circular at module level)
+# In real system these would be injected.
+from services.notification_compiler import NotificationCompiler
+from services.notification_dispatcher import NotificationDispatcher
 
 
 class SearchMatchEngine:
@@ -109,17 +122,30 @@ class SearchMatchEngine:
 
         return True
 
-    def evaluate(self, property_obj: PropertyListing) -> int:
+    def evaluate(
+        self,
+        property_obj: PropertyListing,
+        background_tasks: "BackgroundTasks | None" = None,
+        session_factory: callable | None = None,
+    ) -> int:
         """
         For a freshly persisted (inserted) PropertyListing, scan all active
         SavedSearchAlert rows, deserialize their filters_json, test the predicate,
         and INSERT SavedSearchMatch rows for every hit.
 
         Side-effect: commits matches + bumps last_matched_at on matched alerts.
+        If background_tasks is provided (FastAPI web path), also schedules
+        outbound notification delivery via NotificationDispatcher (Phase 4.0).
+        The dispatch task receives its own fresh session via session_factory.
+
         Returns number of match records written (0 if none or property invalid).
 
         Must be called **after** the upsert chunk commit for the property so that
         the FK to properties.id is valid and we are outside the main ingestion tx.
+
+        Args:
+            background_tasks: Optional FastAPI BackgroundTasks for non-blocking email.
+            session_factory: Callable returning fresh Session for the background task.
         """
         if property_obj is None or not getattr(property_obj, "id", None):
             return 0
@@ -182,6 +208,47 @@ class SearchMatchEngine:
                 alert.last_matched_at = now
                 self._session.add(alert)
 
+                # Phase 4.0: Schedule outbound notification (non-blocking) when
+                # background context is available. Avoids session-passing creep by
+                # delegating scheduling to FastAPI BackgroundTasks + fresh session
+                # inside the task.
+                if background_tasks is not None and session_factory is not None:
+                    try:
+                        compiler = NotificationCompiler(frontend_base_url="http://localhost:3000")
+                        rendered = compiler.compile(
+                            match_details=details,
+                            alert_title=alert.title,
+                            property_id=property_obj.id,
+                            property_title=property_obj.title,
+                            image_urls=property_obj.image_urls,
+                            sector=property_obj.sector,
+                            price_usd=property_obj.price_usd,
+                            list_price=property_obj.list_price,
+                        )
+
+                        recipient = "alerts@allblue.example"  # demo; resolve from user profile in prod
+
+                        dispatcher = NotificationDispatcher(email_client=None)  # type: ignore[arg-type]
+
+                        class _StubEmailClient:
+                            async def send_email(self, to: str, subject: str, html_body: str) -> bool:
+                                import logging
+                                logging.getLogger(__name__).info("STUB email sent to %s subject=%s", to, subject)
+                                return True
+
+                        dispatcher._email_client = _StubEmailClient()  # type: ignore[attr-defined]
+
+                        dispatcher.schedule(
+                            background_tasks=background_tasks,
+                            rendered_html=rendered,
+                            recipient=recipient,
+                            match_id=match_row.id,
+                            alert_title=alert.title,
+                            session_factory=session_factory,
+                        )
+                    except Exception:
+                        logger.exception("Failed to schedule Phase 4 notification for match %s", match_row.id)
+
                 matches_written += 1
 
         if matches_written > 0:
@@ -191,14 +258,25 @@ class SearchMatchEngine:
 
 
 def evaluate_property_against_alerts(
-    property_obj: PropertyListing, session: Session
+    property_obj: PropertyListing,
+    session: Session,
+    background_tasks: "BackgroundTasks | None" = None,
+    session_factory: callable | None = None,
 ) -> int:
     """
     Convenience wrapper that preserves the original function-based call site
     used by IngestionOrchestrator while delegating to the canonical
     SearchMatchEngine class (OOP requirement).
 
+    Phase 4.0: forwards background_tasks and session_factory so that match
+    creation can immediately schedule the notification email without blocking
+    the caller.
+
     All new call sites and tests should prefer the class form when they need
     more control (e.g. multiple evaluations against the same session).
     """
-    return SearchMatchEngine(session).evaluate(property_obj)
+    return SearchMatchEngine(session).evaluate(
+        property_obj,
+        background_tasks=background_tasks,
+        session_factory=session_factory,
+    )

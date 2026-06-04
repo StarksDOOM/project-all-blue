@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Trash2, Bell, BellOff } from "lucide-react";
+import { Trash2, Bell, BellOff, History } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { savedSearchKeys } from "@/lib/query-keys";
-import { SavedSearchAlert } from "@/lib/types";
+import { AlertMatchesResponse, SavedSearchAlert, SavedSearchMatchWithDelivery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +54,15 @@ export default function SavedSearchAlertsPage() {
   const deleteMut = useMutation({
     mutationFn: (id: string) => api.deleteSavedSearchAlert(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: savedSearchKeys.all }),
+  });
+
+  const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null);
+
+  const { data: matchesData } = useQuery({
+    queryKey: expandedAlertId ? savedSearchKeys.matches(expandedAlertId) : savedSearchKeys.matches("__none__"),
+    queryFn: () => api.listMatchesForAlert(expandedAlertId!, DEMO_USER_ID),
+    enabled: !!expandedAlertId,
+    staleTime: 30_000,
   });
 
   const alerts = data?.data ?? [];
@@ -146,6 +156,65 @@ export default function SavedSearchAlertsPage() {
                         Eliminar
                       </Button>
                     </div>
+
+                    <div className="pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setExpandedAlertId(expandedAlertId === alert.id ? null : alert.id)}
+                      >
+                        <History className="mr-1.5 h-3 w-3" />
+                        {expandedAlertId === alert.id ? "Ocultar" : "Ver"} Propiedades Encontradas
+                      </Button>
+                    </div>
+
+                    {expandedAlertId === alert.id && matchesData && (
+                      <div className="mt-2 space-y-2 border-t pt-2">
+                        {matchesData.matches.length === 0 && (
+                          <p className="text-[11px] text-muted-foreground">Aún no hay coincidencias registradas.</p>
+                        )}
+                        {matchesData.matches.map((m: SavedSearchMatchWithDelivery) => {
+                          const snap = (m.match_details?.snapshot as Record<string, any>) || {};
+                          const price = snap.price_usd || snap.list_price || 0;
+                          const statusLabel =
+                            m.delivery_status === "sent"
+                              ? "Notificación Enviada"
+                              : m.delivery_status === "pending"
+                              ? "Pendiente"
+                              : "Falló";
+                          const badgeVariant =
+                            m.delivery_status === "sent" ? "default" : m.delivery_status === "pending" ? "secondary" : "destructive";
+                          return (
+                            <div key={m.id} className="flex items-start gap-2 rounded border p-2 text-xs">
+                              <div className="h-10 w-14 flex-shrink-0 overflow-hidden rounded bg-muted">
+                                {snap.image_url ? (
+                                  <img src={snap.image_url} alt="" className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium">{snap.title || "Propiedad"}</div>
+                                <div className="text-[10px] text-muted-foreground">{snap.sector}</div>
+                                <div className="mt-0.5 flex items-center gap-1.5">
+                                  <span className="font-semibold">${price.toLocaleString()}</span>
+                                  <Badge variant={badgeVariant as any} className="px-1 py-0 text-[9px]">
+                                    {statusLabel}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => router.push(`/properties/${m.property_id}`)}
+                              >
+                                Ver
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
 
                     {alert.last_matched_at ? (
                       <p className="text-[11px] text-muted-foreground">

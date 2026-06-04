@@ -235,3 +235,19 @@ export interface CreateSavedSearchPayload {
   title: string;
   filters: Partial<PropertyFilterParams>; // subset without page
 }
+
+/** Phase 4.0 match with delivery status for history ledger */
+export interface SavedSearchMatchWithDelivery {
+  id: string;
+  property_id: string;
+  matched_at: string;
+  match_details: Record<string, unknown>;
+  delivery_status: "pending" | "sent" | "failed";
+  sent_at?: string | null;
+  retry_count: number;
+}
+
+export interface AlertMatchesResponse {
+  alert_id: string;
+  matches: SavedSearchMatchWithDelivery[];
+}

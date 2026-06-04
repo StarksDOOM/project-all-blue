@@ -1,0 +1,24 @@
+{% extends "base_email.html" %}
+
+{% block content %}
+  <h2 style="margin:0 0 12px 0; font-size:20px; color:#0f172a;">New match for your alert</h2>
+  <p style="margin:0 0 20px 0; color:#475569; font-size:15px;"><strong>{{ alert_title }}</strong></p>
+
+  {% if image_url %}
+    <img src="{{ image_url }}" alt="{{ title }}" class="property-image" style="max-height:320px; object-fit:cover;">
+  {% else %}
+    <div style="background:#f1f5f9; height:180px; border-radius:8px; display:flex; align-items:center; justify-content:center; margin-bottom:16px;">
+      <span style="color:#64748b; font-size:14px;">📷 No image available for this listing</span>
+    </div>
+  {% endif %}
+
+  <p style="margin:0 0 4px 0; font-size:15px; color:#334155;"><strong>{{ title }}</strong></p>
+  <div class="price">{{ price_formatted }}</div>
+  <p class="meta" style="margin:0 0 20px 0;">{{ location }}</p>
+
+  <a href="{{ detail_url }}" class="cta">View full details on All Blue →</a>
+
+  <p style="font-size:13px; color:#64748b; margin-top:24px;">
+    This property matched your saved search criteria. Matches are evaluated in near real-time as new inventory is ingested.
+  </p>
+{% endblock %}

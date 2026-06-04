@@ -1,4 +1,5 @@
 import {
+  AlertMatchesResponse,
   ContractRecord,
   CreateSavedSearchPayload,
   InitializeContractPayload,
@@ -393,6 +394,19 @@ export const api = {
       const message = await parseErrorMessage(response, `Failed to delete alert: ${response.statusText}`);
       throw new Error(message);
     }
+  },
+
+  // Phase 4.0: fetch match history + delivery status for a saved alert
+  listMatchesForAlert: async (alertId: string, userId: string): Promise<AlertMatchesResponse> => {
+    const qs = new URLSearchParams({ user_id: userId });
+    const response = await fetch(
+      `${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(alertId)}/matches?${qs.toString()}`,
+      { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+    );
+    if (!response.ok) {
+      throw new Error(`Failed to load matches for alert: ${response.statusText}`);
+    }
+    return response.json();
   },
 
   initializeContract: async (
