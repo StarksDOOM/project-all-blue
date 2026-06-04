@@ -1,6 +1,8 @@
-"""Pydantic contracts for Phase 4 transaction + legal document API."""
+"""Pydantic contracts for Phase 4–5 transaction + legal document API."""
 
 from __future__ import annotations
+
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +15,10 @@ class TransactionCreateRequest(BaseModel):
     seller_id_doc: str = Field(..., min_length=5)
     agreed_price: float = Field(..., gt=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
+
+
+class SignatureExecuteRequest(BaseModel):
+    role: Literal["BUYER", "SELLER"]
 
 
 class TransactionResponse(BaseModel):
@@ -29,6 +35,10 @@ class TransactionResponse(BaseModel):
     status: str
     created_at: str
     updated_at: str
+    buyer_signed_at: str | None = None
+    seller_signed_at: str | None = None
+    signature_telemetry: dict[str, Any] = Field(default_factory=dict)
+    is_locked: bool = False
 
 
 class LegalContractResponse(BaseModel):
@@ -39,5 +49,8 @@ class LegalContractResponse(BaseModel):
     document_body: str
     generated_at: str
     version_hash: str
+    document_hash: str | None = None
+    pdf_file_path: str | None = None
+    has_secure_pdf: bool = False
     transaction: TransactionResponse
     property: dict

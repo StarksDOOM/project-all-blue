@@ -8,8 +8,11 @@ Ingestion-related tables:
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
+
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import SQLModel, Field, String, BigInteger
@@ -131,6 +134,13 @@ class IngestionSyncJob(AllBlueBaseModel, table=True):
     error_message: Optional[str] = Field(default=None, nullable=True)  # Set when status=FAILED
 
 
+class SignatureRole(str, Enum):
+    """Multi-party execution roles for Phase 5 digital signatures."""
+
+    BUYER = "BUYER"
+    SELLER = "SELLER"
+
+
 class TransactionSessionStatus(str, Enum):
     """Lifecycle for Phase 4 transaction → legal document pipeline."""
 
@@ -170,6 +180,12 @@ class TransactionSession(SQLModel, table=True):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
     )
+    buyer_signed_at: Optional[datetime] = Field(default=None, nullable=True)
+    seller_signed_at: Optional[datetime] = Field(default=None, nullable=True)
+    signature_telemetry: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )
 
 
 class LegalContract(SQLModel, table=True):
@@ -191,6 +207,8 @@ class LegalContract(SQLModel, table=True):
         index=True,
     )
     version_hash: str = Field(index=True)
+    document_hash: Optional[str] = Field(default=None, nullable=True, index=True)
+    pdf_file_path: Optional[str] = Field(default=None, nullable=True)
 
 
 class SRLContract(AllBlueBaseModel, table=True):

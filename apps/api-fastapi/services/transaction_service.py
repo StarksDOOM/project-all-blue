@@ -188,6 +188,18 @@ def transaction_to_dict(
         "status": transaction.status.value,
         "created_at": transaction.created_at.isoformat(),
         "updated_at": transaction.updated_at.isoformat(),
+        "buyer_signed_at": (
+            transaction.buyer_signed_at.isoformat()
+            if transaction.buyer_signed_at
+            else None
+        ),
+        "seller_signed_at": (
+            transaction.seller_signed_at.isoformat()
+            if transaction.seller_signed_at
+            else None
+        ),
+        "signature_telemetry": transaction.signature_telemetry or {},
+        "is_locked": transaction.status.value in ("GENERATED", "EXECUTED"),
     }
     if property_listing is not None:
         payload["property_remote_id"] = property_listing.remote_id
@@ -208,6 +220,9 @@ def contract_to_dict(
         "document_body": contract.document_body,
         "generated_at": contract.generated_at.isoformat(),
         "version_hash": contract.version_hash,
+        "document_hash": contract.document_hash,
+        "pdf_file_path": contract.pdf_file_path,
+        "has_secure_pdf": bool(contract.document_hash and contract.pdf_file_path),
         "transaction": transaction_to_dict(transaction, property_listing),
         "property": {
             "id": property_listing.id,

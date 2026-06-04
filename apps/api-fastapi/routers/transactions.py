@@ -10,16 +10,21 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import PlainTextResponse
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, Request, status
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlmodel import Session
 
 from database import get_db_session
+from models import SignatureRole
 from schemas.transactions import (
     LegalContractResponse,
+    SignatureExecuteRequest,
     TransactionCreateRequest,
     TransactionResponse,
 )
+from services.signature_service import execute_signature, generate_secure_pdf
 from services.transaction_service import (
     contract_to_dict,
     create_transaction_session,
@@ -100,3 +105,62 @@ def fetch_contract_raw_markdown(
     """Stream raw markdown (print/download friendly)."""
     _, contract, _ = get_latest_legal_contract(session, transaction_id)
     return contract.document_body
+
+
+@router.post(
+    "/{transaction_id}/generate-pdf",
+    response_model=LegalContractResponse,
+    status_code=status.HTTP_200_OK,
+)
+def generate_contract_pdf(
+    transaction_id: str,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    """Compile secure PDF and persist SHA-256 ``document_hash``."""
+    transaction, contract, property_listing = generate_secure_pdf(session, transaction_id)
+    return contract_to_dict(contract, transaction, property_listing)
+
+
+@router.post(
+    "/{transaction_id}/execute-signature",
+    response_model=LegalContractResponse,
+    status_code=status.HTTP_200_OK,
+)
+def execute_contract_signature(
+    transaction_id: str,
+    payload: SignatureExecuteRequest,
+    request: Request,
+    session: Session = Depends(get_db_session),
+) -> dict:
+    """Capture BUYER or SELLER digital signature with tamper-evidence checks."""
+    role = SignatureRole(payload.role)
+    transaction, contract, property_listing = execute_signature(
+        session,
+        transaction_id,
+        role,
+        request,
+    )
+    return contract_to_dict(contract, transaction, property_listing)
+
+
+@router.get("/{transaction_id}/contract/pdf")
+def download_contract_pdf(
+    transaction_id: str,
+    session: Session = Depends(get_db_session),
+) -> FileResponse:
+    """Stream the tamper-sealed PDF binary."""
+    _, contract, _ = get_latest_legal_contract(session, transaction_id)
+    if not contract.pdf_file_path:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Secure PDF not generated")
+    pdf_path = Path(contract.pdf_file_path)
+    if not pdf_path.is_file():
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Secure PDF file not found on disk")
+    return FileResponse(
+        path=pdf_path,
+        media_type="application/pdf",
+        filename=pdf_path.name,
+    )
