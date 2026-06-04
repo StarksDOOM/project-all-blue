@@ -8,17 +8,18 @@ POST /api/v1/properties/trigger-crawl — queue OOP ingestion (202 Accepted)
 
 from __future__ import annotations
 
-import time
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import or_
-from sqlmodel import Session, func, select
+from sqlmodel import Session, select
 
 from database import get_db_session
 from models import PropertyListing
 from schemas.property_detail import PropertyDetailResponse
+from schemas.property_filters import PropertyFilterParams, PropertyTypeFilter
+from services.property_list_service import list_properties_paginated
 from scrapers.driver_factory import DriverFactory
 from scrapers.drivers.realtor import RealtorDriver
 from scrapers.utils.normalization import hydrate_listing_bathrooms
@@ -31,29 +32,32 @@ from services.sync_service import IngestionOrchestrator
 
 router = APIRouter(prefix="/api/v1/properties", tags=["properties"])
 
-_LIST_COUNT_CACHE: dict[str, tuple[int, float]] = {}
-_LIST_COUNT_TTL_SEC = 90.0
 
-
-def _list_count_cache_key(
-    source_portal: Optional[str], sector: Optional[str]
-) -> str:
-    return f"{(source_portal or '').strip().lower()}|{sector or ''}"
-
-
-def _resolve_list_total(session: Session, count_filters: list[Any], cache_key: str) -> int:
-    """Cached COUNT for storefront pagination (avoids ~2s scan on every page change)."""
-    now = time.monotonic()
-    cached = _LIST_COUNT_CACHE.get(cache_key)
-    if cached is not None:
-        total, expires = cached
-        if now < expires:
-            return total
-    total = session.exec(
-        select(func.count()).select_from(PropertyListing).where(*count_filters)
-    ).one()
-    _LIST_COUNT_CACHE[cache_key] = (total, now + _LIST_COUNT_TTL_SEC)
-    return total
+def _build_list_filters(
+    source_portal: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None),
+    keyword: Optional[str] = Query(None, alias="q"),
+    price_min: Optional[float] = Query(None, ge=0),
+    price_max: Optional[float] = Query(None, ge=0),
+    bedrooms_min: Optional[int] = Query(None, ge=0, le=20, alias="beds"),
+    bathrooms_min: Optional[float] = Query(None, ge=0, le=20, alias="baths"),
+    property_type: Optional[PropertyTypeFilter] = Query(None, alias="type"),
+    agency: Optional[str] = Query(None),
+) -> PropertyFilterParams:
+    try:
+        return PropertyFilterParams(
+            source_portal=source_portal,
+            sector=sector,
+            keyword=keyword,
+            price_min=price_min,
+            price_max=price_max,
+            bedrooms_min=bedrooms_min,
+            bathrooms_min=bathrooms_min,
+            property_type=property_type,
+            agency=agency,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _resolve_property_asset(session: Session, property_id: str) -> PropertyListing:
@@ -156,63 +160,33 @@ def list_properties(
     session: Session = Depends(get_db_session),
     page: int = Query(1, ge=1, description="1-based page index"),
     page_size: int = Query(20, ge=1, le=100, alias="limit", description="Rows per page"),
-    source_portal: Optional[str] = Query(None, description="Filter by portal key e.g. remaxrd"),
-    sector: Optional[str] = Query(None, description="Exact sector match"),
     include_total: bool = Query(
         True,
         description="When false, skip COUNT(*) and set has_next via limit+1 (fast pagination)",
     ),
+    filters: PropertyFilterParams = Depends(_build_list_filters),
 ):
     """
     Return paginated PropertyListing rows for the Next.js storefront.
 
-    Excludes soft-deleted rows (deleted_at IS NULL).
+    Excludes soft-deleted rows (deleted_at IS NULL). Facets via PropertyFilterParams.
     """
-    query = select(PropertyListing).where(PropertyListing.deleted_at == None)
-
-    if source_portal:
-        query = query.where(PropertyListing.source_portal == source_portal.strip().lower())
-    if sector:
-        query = query.where(PropertyListing.sector == sector)
-
-    count_filters = [PropertyListing.deleted_at == None]
-    if source_portal:
-        count_filters.append(
-            PropertyListing.source_portal == source_portal.strip().lower()
-        )
-    if sector:
-        count_filters.append(PropertyListing.sector == sector)
-
-    cache_key = _list_count_cache_key(source_portal, sector)
-    total: Optional[int] = None
-    pages: Optional[int] = None
-    if include_total:
-        total = _resolve_list_total(session, count_filters, cache_key)
-        pages = (total + page_size - 1) // page_size if page_size else 0
-
-    offset = (page - 1) * page_size
-    fetch_limit = page_size + (0 if include_total else 1)
-    rows = session.exec(
-        query.order_by(PropertyListing.last_modified.desc())
-        .offset(offset)
-        .limit(fetch_limit)
-    ).all()
-
-    has_next = len(rows) > page_size if not include_total else (
-        pages is not None and page < pages
+    result = list_properties_paginated(
+        session,
+        filters=filters,
+        page=page,
+        page_size=page_size,
+        include_total=include_total,
     )
-    page_rows = rows[:page_size]
-    hydrated_rows = [hydrate_listing_bathrooms(row) for row in page_rows]
-
     return {
         "metadata": {
-            "total": total,
-            "page": page,
-            "limit": page_size,
-            "pages": pages,
-            "has_next": has_next,
+            "total": result.total,
+            "page": result.page,
+            "limit": result.limit,
+            "pages": result.pages,
+            "has_next": result.has_next,
         },
-        "data": hydrated_rows,
+        "data": result.rows,
     }
 
 

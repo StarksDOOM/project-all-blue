@@ -181,6 +181,16 @@ def ensure_ingestion_schema() -> None:
         ON real_estate.properties (source_portal, last_modified DESC)
         WHERE deleted_at IS NULL
         """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_properties_faceted_core
+        ON real_estate.properties (source_portal, sector, bedrooms, price_usd)
+        WHERE deleted_at IS NULL
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_properties_faceted_agency
+        ON real_estate.properties (agent_agency, last_modified DESC)
+        WHERE deleted_at IS NULL AND agent_agency IS NOT NULL
+        """,
     ]
     with engine.connect() as connection:
         for statement in statements:
