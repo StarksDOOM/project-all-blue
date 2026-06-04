@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 
 import { HomeDashboardClient } from "@/components/home/HomeDashboardClient";
-import HomeLoading from "@/app/loading";
+import HomeLoading from "./loading";
 import { getQueryClient } from "@/lib/get-query-client";
 import {
   DEFAULT_PROPERTY_FILTERS,
