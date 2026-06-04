@@ -233,3 +233,69 @@ class SRLContract(AllBlueBaseModel, table=True):
     execution_date: datetime
     status: ContractStatus = Field(default=ContractStatus.DRAFT)
     document_body: str = Field(default="")
+
+
+class SavedSearchAlert(SQLModel, table=True):
+    """
+    User-persisted faceted filter matrix for asynchronous property match alerts.
+
+    filters_json stores the exact Phase 2 PropertyFilterParams subset (no page/limit).
+    Evaluation performed by search_match_engine after successful ingestion inserts.
+    Follows the same base columns as AllBlueBaseModel for consistency with admin/audit tooling.
+    """
+
+    __tablename__ = "saved_search_alerts"
+    __table_args__ = {"schema": "real_estate"}
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    tenant_id: str = Field(default="tenant_all_blue", index=True)
+    server_version: int = Field(default=1)
+    last_modified: int = Field(
+        default_factory=get_current_timestamp_ms,
+        sa_type=BigInteger,
+        index=True,
+    )
+    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+
+    user_id: str = Field(index=True)  # UUID string placeholder (until JWT/tenant auth)
+    title: str = Field(max_length=80)
+    filters_json: Dict[str, Any] = Field(
+        sa_column=Column(JSONB, nullable=False)
+    )
+    is_active: bool = Field(default=True, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), index=True
+    )
+    last_matched_at: Optional[datetime] = Field(default=None, nullable=True)
+
+
+class SavedSearchMatch(SQLModel, table=True):
+    """
+    Structured match record written by evaluate_property_against_alerts for a
+    newly ingested PropertyListing that satisfied a SavedSearchAlert's filters_json.
+    """
+
+    __tablename__ = "saved_search_matches"
+    __table_args__ = {"schema": "real_estate"}
+
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
+    tenant_id: str = Field(default="tenant_all_blue", index=True)
+    server_version: int = Field(default=1)
+    last_modified: int = Field(
+        default_factory=get_current_timestamp_ms,
+        sa_type=BigInteger,
+        index=True,
+    )
+    deleted_at: Optional[datetime] = Field(default=None, nullable=True)
+
+    saved_search_alert_id: str = Field(
+        foreign_key="real_estate.saved_search_alerts.id", index=True
+    )
+    property_id: str = Field(foreign_key="real_estate.properties.id", index=True)
+    matched_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), index=True
+    )
+    match_details: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSONB, nullable=False, server_default="{}"),
+    )

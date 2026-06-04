@@ -21,7 +21,7 @@ if str(ROOT) not in sys.path:
 
 from database import engine, get_db_session, init_db  # noqa: E402
 from main import app  # noqa: E402
-from models import LegalContract, PropertyListing, TransactionSession  # noqa: E402
+from models import LegalContract, PropertyListing, SavedSearchAlert, SavedSearchMatch, TransactionSession  # noqa: E402
 from tests.db_cleanup import delete_property_cascade  # noqa: E402
 
 # Full PropertyListing JSON shape returned by GET /api/v1/properties/{property_id}
