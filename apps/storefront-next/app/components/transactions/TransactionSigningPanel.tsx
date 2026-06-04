@@ -1,12 +1,13 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileCheck, Lock, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 import { api } from "@/lib/api";
 import { LegalContractRecord } from "@/lib/types";
 import type { SignatureRole } from "@/lib/transaction-types";
+import { DocuSignEmbeddedSigning } from "@/components/transactions/DocuSignEmbeddedSigning";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -39,6 +40,17 @@ export function TransactionSigningPanel({
   const buyerSigned = Boolean(txn.buyer_signed_at);
   const sellerSigned = Boolean(txn.seller_signed_at);
   const isExecuted = txn.status === "EXECUTED";
+  const hasDocusignEnvelope = Boolean(contract.docusign_envelope_id);
+
+  const { data: signingConfig } = useQuery({
+    queryKey: ["signing-config"],
+    queryFn: () => api.getSigningConfig(),
+    staleTime: 60_000,
+  });
+
+  const useDocuSign =
+    signingConfig?.provider === "docusign" ||
+    process.env.NEXT_PUBLIC_SIGNING_PROVIDER === "docusign";
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["transaction-contract", transactionId] });
@@ -82,7 +94,9 @@ export function TransactionSigningPanel({
             Panel de ejecución digital
           </CardTitle>
           <CardDescription>
-            Firma multiparte sin proveedores externos. Requiere PDF sellado con hash SHA-256.
+            {useDocuSign
+              ? "Firma multiparte vía DocuSign Embedded Signing. Requiere PDF sellado con hash SHA-256."
+              : "Firma multiparte interna. Requiere PDF sellado con hash SHA-256."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -101,6 +115,11 @@ export function TransactionSigningPanel({
               <Badge variant={isExecuted ? "default" : "secondary"} className="w-fit">
                 {txn.status}
               </Badge>
+              {contract.docusign_status ? (
+                <p className="text-xs text-muted-foreground">
+                  DocuSign: {contract.docusign_status}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -119,6 +138,15 @@ export function TransactionSigningPanel({
               <FileCheck className="mr-2 h-4 w-4" />
               {pdfMutation.isPending ? "Generando PDF…" : "Generar PDF seguro"}
             </Button>
+          ) : useDocuSign ? (
+            <DocuSignEmbeddedSigning
+              transactionId={transactionId}
+              hasEnvelope={hasDocusignEnvelope}
+              buyerSigned={buyerSigned}
+              sellerSigned={sellerSigned}
+              isExecuted={isExecuted}
+              onEnvelopeCreated={invalidate}
+            />
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button
@@ -147,6 +175,17 @@ export function TransactionSigningPanel({
               </a>
             </div>
           )}
+
+          {hasPdf && useDocuSign ? (
+            <a
+              href={`${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/api/v1/transactions/${transactionId}/contract/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
+            >
+              Descargar PDF
+            </a>
+          ) : null}
 
           {actionError ? (
             <p className="text-sm text-destructive">{actionError}</p>

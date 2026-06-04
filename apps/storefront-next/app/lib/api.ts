@@ -368,6 +368,61 @@ export const api = {
     return response.json();
   },
 
+  getSigningConfig: async (): Promise<{
+    provider: "docusign" | "internal";
+    docusign_configured: boolean;
+  }> => {
+    const response = await fetch(`${BASE_URL}/api/v1/signing/config`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { provider: "internal", docusign_configured: false };
+    }
+    return response.json();
+  },
+
+  createDocusignEnvelope: async (
+    transactionId: string
+  ): Promise<{ envelope_id: string; docusign_status: string; transaction_id: string }> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/envelope`,
+      { method: "POST", headers: { "Content-Type": "application/json" } }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `DocuSign envelope failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
+  getDocusignSigningUrl: async (
+    transactionId: string,
+    role: SignatureRole,
+    returnUrl: string
+  ): Promise<{ signing_url: string; role: string; envelope_id: string }> => {
+    const response = await fetch(
+      `${BASE_URL}/api/v1/transactions/${encodeURIComponent(transactionId)}/docusign/signing-url`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, return_url: returnUrl }),
+      }
+    );
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `DocuSign signing URL failed: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+    return response.json();
+  },
+
   executeTransactionSignature: async (
     transactionId: string,
     role: SignatureRole
