@@ -24,7 +24,8 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from bs4 import BeautifulSoup
 from curl_cffi import requests
 
-from scrapers.utils.normalization import CHROME_USER_AGENT, combine_bathrooms
+from observability.scraper_errors import map_detail_source_to_method, scraper_error_scope
+from scrapers.utils.normalization import CHROME_USER_AGENT, resolve_bathroom_count
 
 logger = logging.getLogger(__name__)
 
@@ -228,13 +229,34 @@ def _extract_agent_from_record(
 
 
 def _build_specs(record: dict[str, Any]) -> dict[str, Any]:
+    remote_id = str(record.get("id") or record.get("parent_id") or "") or None
+    with scraper_error_scope(
+        "json",
+        remote_id=remote_id,
+        swallow=True,
+        reraise=False,
+    ):
+        return _build_specs_inner(record)
+    return {}
+
+
+def _build_specs_inner(record: dict[str, Any]) -> dict[str, Any]:
     bedrooms = record.get("bedrooms")
-    bathrooms = combine_bathrooms(record.get("bathrooms"), record.get("half_bathrooms"))
+    description_raw = record.get("description")
+    description_source = (
+        description_raw if isinstance(description_raw, str) else None
+    )
+    bathroom_count = resolve_bathroom_count(
+        record.get("bathrooms"),
+        record.get("half_bathrooms"),
+        description_source,
+    )
     sqm_construction = record.get("sqm_construction")
     sqm_land = record.get("sqm_land")
     return {
         "bedrooms": bedrooms,
-        "bathrooms": bathrooms,
+        "bathroom_count": bathroom_count,
+        "bathrooms": record.get("bathrooms"),
         "half_bathrooms": record.get("half_bathrooms"),
         "sqm_construction": sqm_construction,
         "sqm_land": sqm_land,
@@ -248,6 +270,25 @@ def _build_specs(record: dict[str, Any]) -> dict[str, Any]:
 
 
 def _record_to_detail(
+    record: dict[str, Any],
+    *,
+    source: str,
+    scrape_url: str,
+) -> dict[str, Any]:
+    remote_id = str(record.get("id") or record.get("parent_id") or "")
+    method = map_detail_source_to_method(source)
+    with scraper_error_scope(
+        method,
+        remote_id=remote_id or None,
+        url=scrape_url,
+        swallow=True,
+        reraise=False,
+    ):
+        return _record_to_detail_inner(record, source=source, scrape_url=scrape_url)
+    raise RemaxDetailScrapeError(f"Record parse failed for {scrape_url} (id={remote_id})")
+
+
+def _record_to_detail_inner(
     record: dict[str, Any],
     *,
     source: str,
@@ -286,6 +327,33 @@ def _record_to_detail(
 
 
 def _extract_from_dom(html: str, scrape_url: str) -> dict[str, Any]:
+    remote_guess = extract_remote_id_from_url(scrape_url)
+    with scraper_error_scope(
+        "dom",
+        remote_id=remote_guess,
+        url=scrape_url,
+        swallow=True,
+        reraise=False,
+    ):
+        return _extract_from_dom_inner(html, scrape_url)
+    return {
+        "property_id": remote_guess,
+        "title": None,
+        "price": None,
+        "currency": None,
+        "specs": {},
+        "image_list": [],
+        "agent_name": None,
+        "agent_phone": None,
+        "whatsapp_link": None,
+        "description_text": None,
+        "source": "dom_fallback",
+        "scrape_url": scrape_url,
+        "slug": None,
+    }
+
+
+def _extract_from_dom_inner(html: str, scrape_url: str) -> dict[str, Any]:
     soup = BeautifulSoup(html, "html.parser")
 
     property_id = None
@@ -398,9 +466,17 @@ def scrape_remax_property_detail(
         if next_payload:
             record = _find_property_in_next_data(next_payload)
             if record:
-                detail = _record_to_detail(record, source="next_data", scrape_url=scrape_url)
-                detail = _merge_dom_contacts(detail, html)
-                return detail
+                with scraper_error_scope(
+                    "json",
+                    remote_id=remote_id,
+                    url=scrape_url,
+                    swallow=True,
+                    reraise=False,
+                ):
+                    detail = _record_to_detail(record, source="next_data", scrape_url=scrape_url)
+                    detail = _merge_dom_contacts(detail, html)
+                    if detail.get("property_id") or detail.get("image_list"):
+                        return detail
     except RemaxDetailScrapeError:
         raise
     except Exception as exc:
@@ -408,9 +484,12 @@ def scrape_remax_property_detail(
 
     # --- Method A2: public API (same shape as hydration record) ---
     if remote_id:
-        api_record = _fetch_api_detail(remote_id, timeout=timeout)
-        if api_record:
-            return _record_to_detail(api_record, source="remax_api", scrape_url=scrape_url)
+        with scraper_error_scope("api", remote_id=remote_id, url=scrape_url, swallow=True, reraise=False):
+            api_record = _fetch_api_detail(remote_id, timeout=timeout)
+            if api_record:
+                detail = _record_to_detail(api_record, source="remax_api", scrape_url=scrape_url)
+                if detail.get("property_id") or detail.get("title"):
+                    return detail
 
     # --- Method B: DOM fallback ---
     if html is None:

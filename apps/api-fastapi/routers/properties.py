@@ -17,8 +17,10 @@ from sqlmodel import Session, func, select
 
 from database import get_db_session
 from models import PropertyListing
+from schemas.property_detail import PropertyDetailResponse
 from scrapers.driver_factory import DriverFactory
 from scrapers.drivers.realtor import RealtorDriver
+from scrapers.utils.normalization import hydrate_listing_bathrooms
 from services.remax_detail_enrichment import (
     REMAX_PORTAL,
     enrich_remax_listing,
@@ -72,7 +74,7 @@ def get_property_detail(
         None,
         description="Canonical RE/MAX listing URL (e.g. Spanish slug + ?city=) when DB row is missing or stale",
     ),
-) -> PropertyListing:
+) -> PropertyDetailResponse:
     """
     Return one non-deleted PropertyListing row with full field payload (no truncation).
 
@@ -95,7 +97,10 @@ def get_property_detail(
             key,
             portal_url=portal_url,
         )
-        return listing
+        return PropertyDetailResponse.from_listing(hydrate_listing_bathrooms(listing))
+
+    portal_refresh_failed = False
+    portal_refresh_message: str | None = None
 
     if refresh_from_portal and listing.source_portal == REMAX_PORTAL:
         try:
@@ -106,15 +111,19 @@ def get_property_detail(
                 portal_url=portal_url,
             )
         except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Portal refresh failed remote_id=%s: %s",
-                listing.remote_id,
-                exc,
+            portal_refresh_failed = True
+            portal_refresh_message = (
+                "Live portal sync failed; displaying last known data."
             )
             session.refresh(listing)
-    return listing
+
+    listing = hydrate_listing_bathrooms(listing)
+
+    return PropertyDetailResponse.from_listing(
+        listing,
+        portal_refresh_failed=portal_refresh_failed,
+        portal_refresh_message=portal_refresh_message,
+    )
 
 
 @router.get("")
@@ -141,6 +150,7 @@ def list_properties(
     total = session.exec(count_query).one()
     offset = (page - 1) * page_size
     rows = session.exec(query.offset(offset).limit(page_size)).all()
+    hydrated_rows = [hydrate_listing_bathrooms(row) for row in rows]
 
     return {
         "metadata": {
@@ -149,7 +159,7 @@ def list_properties(
             "limit": page_size,
             "pages": (total + page_size - 1) // page_size if page_size else 0,
         },
-        "data": rows,
+        "data": hydrated_rows,
     }
 
 

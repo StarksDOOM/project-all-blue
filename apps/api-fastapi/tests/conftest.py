@@ -53,6 +53,8 @@ PROPERTY_RESPONSE_KEYS = frozenset(
         "agent_agency",
         "raw_description",
         "is_active",
+        "portal_refresh_failed",
+        "portal_refresh_message",
     }
 )
 

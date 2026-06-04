@@ -16,6 +16,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from models import PropertyListing
+from observability.scraper_errors import report_scraper_error, scraper_error_scope
 from scrapers.remax_detail_scraper import (
     RemaxDetailScrapeError,
     _fetch_api_detail,
@@ -27,7 +28,8 @@ from scrapers.remax_detail_scraper import (
 
 REMAX_WEB_BASE = "https://www.remaxrd.com"
 from scrapers.utils.normalization import (
-    combine_bathrooms,
+    hydrate_listing_bathrooms,
+    resolve_bathroom_count_from_specs,
     resolve_prices_usd_dop,
     safe_float,
     safe_int,
@@ -45,6 +47,20 @@ def apply_detail_payload_to_listing(
     detail: dict[str, Any],
 ) -> PropertyListing:
     """Merge scraper output into an in-memory PropertyListing (mutates listing)."""
+    with scraper_error_scope(
+        "enrichment",
+        remote_id=str(listing.remote_id),
+        url=str(listing.url or ""),
+        swallow=False,
+    ):
+        return _apply_detail_payload_inner(listing, detail)
+    return listing
+
+
+def _apply_detail_payload_inner(
+    listing: PropertyListing,
+    detail: dict[str, Any],
+) -> PropertyListing:
     specs = detail.get("specs") or {}
     # Portal list price/currency exactly as returned by RE/MAX API / __NEXT_DATA__ (no inference).
     currency_iso = str(detail.get("currency") or "USD").upper()
@@ -101,9 +117,7 @@ def apply_detail_payload_to_listing(
     if bedrooms is not None:
         listing.bedrooms = safe_int(bedrooms, default=listing.bedrooms)
 
-    baths = combine_bathrooms(specs.get("bathrooms"), specs.get("half_bathrooms"))
-    if baths > 0:
-        listing.bathrooms = baths
+    description = (detail.get("description_text") or "").strip()
 
     sqm_construction = safe_float(specs.get("sqm_construction"), default=0.0)
     sqm_land = safe_float(specs.get("sqm_land"), default=0.0)
@@ -116,7 +130,6 @@ def apply_detail_payload_to_listing(
     business_type = str(specs.get("business_type") or "").strip()
     realstate_type = str(specs.get("realstate_type") or "").strip()
     status = str(specs.get("status") or "").strip()
-    description = (detail.get("description_text") or "").strip()
 
     if status:
         listing.is_active = status.lower() == "disponible"
@@ -136,6 +149,12 @@ def apply_detail_payload_to_listing(
         listing.raw_description = f"{meta_header}\n\n{description}"[:12000]
     elif meta_header:
         listing.raw_description = meta_header
+
+    listing.bathrooms = resolve_bathroom_count_from_specs(
+        specs,
+        description_text=description or None,
+        raw_description=listing.raw_description,
+    )
 
     return listing
 
@@ -304,11 +323,11 @@ def enrich_remax_listings_batch(
         except Exception as exc:
             failed += 1
             session.rollback()
-            logger.warning(
-                "Detail enrichment failed remote_id=%s url=%s: %s",
-                listing.remote_id,
-                listing.url,
+            report_scraper_error(
                 exc,
+                scraper_method="enrichment",
+                remote_id=str(listing.remote_id),
+                url=str(listing.url or ""),
             )
         if sleep_seconds > 0:
             time.sleep(sleep_seconds)

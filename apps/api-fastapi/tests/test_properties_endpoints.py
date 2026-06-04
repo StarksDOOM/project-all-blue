@@ -44,10 +44,14 @@ def test_get_property_by_int_id_success(
 
     All Blue internal PK is a Blu string (#BLU-…); integer-style URLs use remote_id.
     """
-    response = api_client.get(f"/api/v1/properties/{seeded_property.remote_id}")
+    response = api_client.get(
+        f"/api/v1/properties/{seeded_property.remote_id}?refresh_from_portal=false"
+    )
 
     assert response.status_code == 200
-    _assert_property_payload(response.json(), seeded_property)
+    body = response.json()
+    assert body.get("portal_refresh_failed") is False
+    _assert_property_payload(body, seeded_property)
 
 
 def test_get_property_by_remote_id_success(
@@ -55,11 +59,14 @@ def test_get_property_by_remote_id_success(
     seeded_property: PropertyListing,
 ) -> None:
     """Explicit string remote_id returns 200 with full row payload."""
-    response = api_client.get(f"/api/v1/properties/{seeded_property.remote_id}")
+    response = api_client.get(
+        f"/api/v1/properties/{seeded_property.remote_id}?refresh_from_portal=false"
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["remote_id"] == seeded_property.remote_id
+    assert body.get("portal_refresh_failed") is False
     _assert_property_payload(body, seeded_property)
 
 
@@ -69,10 +76,14 @@ def test_get_property_by_internal_blu_id_success(
 ) -> None:
     """Internal database primary key (Blu id string) resolves successfully."""
     encoded_id = quote(seeded_property.id, safe="")
-    response = api_client.get(f"/api/v1/properties/{encoded_id}")
+    response = api_client.get(
+        f"/api/v1/properties/{encoded_id}?refresh_from_portal=false"
+    )
 
     assert response.status_code == 200
-    _assert_property_payload(response.json(), seeded_property)
+    body = response.json()
+    assert body.get("portal_refresh_failed") is False
+    _assert_property_payload(body, seeded_property)
 
 
 def test_get_property_not_found(api_client: TestClient) -> None:
