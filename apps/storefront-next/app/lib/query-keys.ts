@@ -22,4 +22,5 @@ export const propertyKeys = {
 export const savedSearchKeys = {
   all: ["saved-searches"] as const,
   list: (userId: string) => [...savedSearchKeys.all, "list", userId] as const,
+  matches: (alertId: string) => [...savedSearchKeys.all, "matches", alertId] as const,
 };
