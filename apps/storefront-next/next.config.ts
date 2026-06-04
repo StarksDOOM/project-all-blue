@@ -1,3 +1,4 @@
+import path from "path";
 import type { NextConfig } from "next";
 
 const withBundleAnalyzer = require("@next/bundle-analyzer")({
@@ -5,6 +6,8 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 });
 
 const nextConfig: NextConfig = {
+  // Monorepo: avoid Next picking the wrong lockfile/workspace root (slow dev + tracing)
+  outputFileTracingRoot: path.join(__dirname, "../.."),
   eslint: {
     ignoreDuringBuilds: true,
   },
