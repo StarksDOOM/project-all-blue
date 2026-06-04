@@ -56,6 +56,23 @@ def ensure_ingestion_schema() -> None:
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_agency VARCHAR",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS list_price DOUBLE PRECISION",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS image_urls JSONB",
+        """
+        CREATE TABLE IF NOT EXISTS real_estate.scraper_error_logs (
+            id VARCHAR PRIMARY KEY,
+            remote_id VARCHAR,
+            url VARCHAR,
+            scraper_method VARCHAR NOT NULL,
+            error_type VARCHAR NOT NULL,
+            stack_trace TEXT NOT NULL,
+            resolved BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_scraper_error_logs_unresolved
+        ON real_estate.scraper_error_logs (resolved, created_at DESC)
+        WHERE resolved = FALSE
+        """,
     ]
     with engine.connect() as connection:
         for statement in statements:

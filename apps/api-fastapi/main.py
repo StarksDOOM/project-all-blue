@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import ensure_contract_schema, ensure_ingestion_schema, init_db
-from routers import contracts, properties
+from routers import admin, contracts, properties
 
 # Load DATABASE_URL, CORS_ORIGINS, ADSPOWER_* from apps/api-fastapi/.env
 load_dotenv()
@@ -55,6 +55,7 @@ app.add_middleware(
 
 app.include_router(properties.router)
 app.include_router(contracts.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

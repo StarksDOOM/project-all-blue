@@ -6,10 +6,10 @@ Ingestion-related tables:
   - IngestionSyncJob — per-crawl lifecycle and metrics
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
-from sqlalchemy import Column
+from sqlalchemy import Column, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import SQLModel, Field, String, BigInteger
 from database import generate_blu_id, get_current_timestamp_ms
@@ -90,6 +90,30 @@ class PropertyListing(AllBlueBaseModel, table=True):
     agent_agency: Optional[str] = Field(default=None, nullable=True)
     raw_description: str  # Compact summary for search and contract templates
     is_active: bool = Field(default=True)  # RE/MAX: status == disponible
+
+
+class ScraperErrorLog(SQLModel, table=True):
+    """
+    Telemetry row for RE/MAX scraper parse/enrichment failures.
+
+    Persisted via ``observability.scraper_errors.persist_scraper_error_record``
+    (swappable sink for external APM later).
+    """
+
+    __tablename__ = "scraper_error_logs"
+    __table_args__ = {"schema": "real_estate"}
+
+    id: str = Field(default_factory=generate_blu_id, primary_key=True, index=True)
+    remote_id: Optional[str] = Field(default=None, index=True)
+    url: Optional[str] = Field(default=None, nullable=True)
+    scraper_method: str = Field(index=True)  # json | dom | api | enrichment
+    error_type: str = Field(index=True)
+    stack_trace: str = Field(sa_column=Column(Text, nullable=False))
+    resolved: bool = Field(default=False, index=True)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
 
 
 class IngestionSyncJob(AllBlueBaseModel, table=True):
