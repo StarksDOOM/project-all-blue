@@ -39,7 +39,8 @@ STREAM 4 — Transactions & execution
 ## Developer tooling
 
 - **Code reviews (token-efficient):** [docs/development/code-review-graph.md](../docs/development/code-review-graph.md)
-- **Agent engineering directives:** [docs/development/engineering-directives.md](../docs/development/engineering-directives.md) — CRG, Graphify gates, OWASP, **Spec-Kit enforcement**
+- **Agent operating manual:** [docs/development/agent-operating-manual.md](../docs/development/agent-operating-manual.md) — Spec-Kit, tests, merge, CRG, OWASP
+- **Agent engineering directives:** [docs/development/engineering-directives.md](../docs/development/engineering-directives.md) — CRG, Graphify gates, **Spec-Kit enforcement**
 - **Graphify upgrade:** [docs/development/graphify-upgrade-requirements.md](../docs/development/graphify-upgrade-requirements.md)
 
 ## Conventions

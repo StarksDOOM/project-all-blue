@@ -1,6 +1,6 @@
 # Engineering directives (All Blue Core)
 
-Canonical copy for agents and reviewers. Local `AGENTS.md` is gitignored; sync this section there if your assistant reads `AGENTS.md` at session start.
+Canonical copy for agents and reviewers. Full operating manual (committed): **[agent-operating-manual.md](agent-operating-manual.md)**. Local root `AGENTS.md` is gitignored for machine overrides — keep it aligned with that file.
 
 Applies to `apps/api-fastapi/`, `apps/storefront-next/`, `.spec-kit/`, and `docs/features/`.
 
