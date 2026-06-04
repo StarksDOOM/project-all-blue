@@ -20,7 +20,8 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/docusign-embedded-signing.spec.md](specs/api/docusign-embedded-signing.spec.md) | STREAM 4 PHASE 5.1 | SHIPPED |
 | [api/post-execution-audit.spec.md](specs/api/post-execution-audit.spec.md) | STREAM 4 PHASE 6.0 | SHIPPED |
 | [api/realtime-sse-sync.spec.md](specs/api/realtime-sse-sync.spec.md) | STREAM 4 PHASE 7.0 | SHIPPED |
-| [frontend/performance-optimization.spec.md](specs/frontend/performance-optimization.spec.md) | STREAM 5 PHASE 1.0 | IN_PROGRESS |
+| [frontend/performance-optimization.spec.md](specs/frontend/performance-optimization.spec.md) | STREAM 5 PHASE 1.0 | SHIPPED |
+| [api/faceted-filtering-matrix.spec.md](specs/api/faceted-filtering-matrix.spec.md) | STREAM 5 PHASE 2.0 | DRAFT |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -38,6 +39,7 @@ STREAM 4 — Transactions & execution
 
 STREAM 5 — Storefront performance
   PHASE 1.0  performance-optimization (RSC prefetch, hydration, Suspense, bundle analyzer)
+  PHASE 2.0  faceted-filtering-matrix (dynamic SQL facets, URL state, debounced panel)
 ```
 
 ## Developer tooling

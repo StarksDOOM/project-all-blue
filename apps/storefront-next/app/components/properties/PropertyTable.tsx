@@ -2,32 +2,16 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { propertyKeys } from "@/lib/query-keys";
+import { useFilterParams } from "@/hooks/useFilterParams";
 import { formatPrimaryPrice, formatSecondaryPrice } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { BusinessTypeFilter, PropertyListing } from "@/lib/types";
+import { PropertyListing } from "@/lib/types";
+import { PropertyFilterPanel } from "@/components/properties/PropertyFilterPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
-
-const TransactionContractModal = dynamic(
-  () =>
-    import("@/components/transactions/TransactionContractModal").then(
-      (mod) => mod.TransactionContractModal
-    ),
-  { ssr: false }
-);
 import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -37,20 +21,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+
+const TransactionContractModal = dynamic(
+  () =>
+    import("@/components/transactions/TransactionContractModal").then(
+      (mod) => mod.TransactionContractModal
+    ),
+  { ssr: false }
+);
 
 const PAGE_SIZE = 20;
-
-const SECTOR_OPTIONS = [
-  "Piantini",
-  "Ensanche Naco",
-  "La Esperilla",
-  "Bella Vista",
-  "Evaristo Morales",
-  "Los Prados",
-  "El Millón",
-  "Zona Universitaria",
-  "Viejo Arroyo Hondo",
-];
 
 interface PropertyTableProps {
   onSelectProperty: (property: PropertyListing) => void;
@@ -68,32 +50,46 @@ export function PropertyTable({
   selectedPropertyId,
 }: PropertyTableProps) {
   const [contractProperty, setContractProperty] = useState<PropertyListing | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sectorFilter, setSectorFilter] = useState("");
-  const [businessTypeFilter, setBusinessTypeFilter] = useState<BusinessTypeFilter>("");
+  const {
+    appliedFilters,
+    fingerprint,
+    draft,
+    setDraftField,
+    setInstantFilter,
+    setPage,
+    resetFilters,
+    isDebouncing,
+  } = useFilterParams();
+
+  const currentPage = appliedFilters.page ?? 1;
+
+  const queryPayload = {
+    page: currentPage,
+    limit: PAGE_SIZE,
+    source_portal: appliedFilters.source_portal ?? "remaxrd",
+    sector: appliedFilters.sector,
+    keyword: appliedFilters.keyword,
+    price_min: appliedFilters.price_min,
+    price_max: appliedFilters.price_max,
+    bedrooms_min: appliedFilters.bedrooms_min,
+    bathrooms_min: appliedFilters.bathrooms_min,
+    property_type: appliedFilters.property_type || undefined,
+    agency: appliedFilters.agency,
+  };
 
   const { data: totalSnapshot } = useQuery({
-    queryKey: propertyKeys.total(sectorFilter),
+    queryKey: propertyKeys.total(fingerprint),
     queryFn: () =>
-      api.getPropertiesPage({
-        page: 1,
-        limit: PAGE_SIZE,
-        source_portal: "remaxrd",
-        sector: sectorFilter || undefined,
-        include_total: true,
-      }),
+      api.getPropertiesPage({ ...queryPayload, page: 1, include_total: true }),
     staleTime: 120_000,
     gcTime: 600_000,
   });
 
   const { data, isLoading, isError, error, isFetching } = useQuery({
-    queryKey: propertyKeys.list(currentPage, sectorFilter, businessTypeFilter),
+    queryKey: propertyKeys.list(currentPage, fingerprint),
     queryFn: () =>
       api.getPropertiesPage({
-        page: currentPage,
-        limit: PAGE_SIZE,
-        source_portal: "remaxrd",
-        sector: sectorFilter || undefined,
+        ...queryPayload,
         include_total: currentPage === 1,
       }),
     staleTime: 60_000,
@@ -104,17 +100,9 @@ export function PropertyTable({
     placeholderData: (previousData) => previousData,
   });
 
-  const filteredRows = useMemo(() => {
-    const rows = data?.data ?? [];
-    if (!businessTypeFilter) {
-      return rows;
-    }
-    return rows.filter((row) => row.business_type === businessTypeFilter);
-  }, [data?.data, businessTypeFilter]);
-
+  const rows = data?.data ?? [];
   const metadata = data?.metadata;
-  const inventoryTotal =
-    totalSnapshot?.metadata.total ?? metadata?.total ?? null;
+  const inventoryTotal = totalSnapshot?.metadata.total ?? metadata?.total ?? null;
   const totalPages =
     inventoryTotal != null
       ? Math.max(1, Math.ceil(inventoryTotal / PAGE_SIZE))
@@ -124,112 +112,78 @@ export function PropertyTable({
   const canGoPrevious = currentPage > 1;
   const canGoNext =
     metadata?.has_next ?? (inventoryTotal != null && currentPage < totalPages);
+  const showPartialSkeleton = Boolean(data && (isFetching || isDebouncing));
 
   if (isLoading && !data) {
     return (
-      <Card>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Loading inventory from FastAPI…
-            {isFetching ? " (retrying)" : null}
-          </p>
-          <Skeleton className="h-8 w-full max-w-md" />
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <PropertyFilterPanel
+          filters={appliedFilters}
+          draft={draft}
+          onDraftChange={setDraftField}
+          onInstantChange={setInstantFilter}
+          onReset={resetFilters}
+          isDebouncing={isDebouncing}
+        />
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <Skeleton className="h-8 w-full max-w-md" />
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   if (isError) {
     return (
-      <Card className="border-destructive/30 bg-destructive/5">
-        <CardContent className="pt-4 text-sm text-destructive">
-          Failed to load properties: {(error as Error).message}
-          <p className="mt-2 text-xs text-muted-foreground">
-            Ensure FastAPI is running at{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-foreground">
-              http://127.0.0.1:8000
-            </code>
-            .
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <PropertyFilterPanel
+          filters={appliedFilters}
+          draft={draft}
+          onDraftChange={setDraftField}
+          onInstantChange={setInstantFilter}
+          onReset={resetFilters}
+        />
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="pt-4 text-sm text-destructive">
+            Failed to load properties: {(error as Error).message}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="flex flex-wrap items-end gap-4">
-          <div className="flex min-w-[200px] flex-col gap-2">
-            <Label htmlFor="sector-filter">Sector</Label>
-            <Select
-              value={sectorFilter || "all"}
-              onValueChange={(value) => {
-                setSectorFilter(!value || value === "all" ? "" : value);
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger id="sector-filter" className="w-full min-w-[200px]" size="default">
-                <SelectValue placeholder="All Sectors" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Sectors</SelectItem>
-                {SECTOR_OPTIONS.map((sector) => (
-                  <SelectItem key={sector} value={sector}>
-                    {sector}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <PropertyFilterPanel
+        filters={appliedFilters}
+        draft={draft}
+        onDraftChange={setDraftField}
+        onInstantChange={setInstantFilter}
+        onReset={resetFilters}
+        isDebouncing={isDebouncing}
+      />
 
-          <div className="flex min-w-[200px] flex-col gap-2">
-            <Label htmlFor="business-type-filter">Type</Label>
-            <Select
-              value={businessTypeFilter || "all"}
-              onValueChange={(value) => {
-                setBusinessTypeFilter(
-                  !value || value === "all" ? "" : (value as BusinessTypeFilter)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              <SelectTrigger
-                id="business-type-filter"
-                className="w-full min-w-[200px]"
-                size="default"
-              >
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="alquiler">Rent (Alquiler)</SelectItem>
-                <SelectItem value="venta">Sale (Venta)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="ml-auto text-sm text-muted-foreground">
-            {isFetching ? <span>Refreshing…</span> : null}
-            {metadata ? (
-              <span>
-                Page {metadata.page}
-                {inventoryTotal != null ? (
-                  <>
-                    {" "}
-                    of {totalPages} ({inventoryTotal.toLocaleString()} total)
-                  </>
-                ) : metadata.has_next ? (
-                  <> · more available</>
-                ) : null}
-              </span>
+      <div className="flex justify-end text-sm text-muted-foreground">
+        {metadata ? (
+          <span>
+            Page {metadata.page}
+            {inventoryTotal != null ? (
+              <> of {totalPages} ({inventoryTotal.toLocaleString()} total)</>
+            ) : metadata.has_next ? (
+              <> · more available</>
             ) : null}
-          </div>
-        </CardContent>
-      </Card>
+          </span>
+        ) : null}
+      </div>
 
-      <Card className="py-0">
+      <Card className="relative py-0">
+        {showPartialSkeleton ? (
+          <p className="absolute right-4 top-3 z-10 text-xs font-medium text-muted-foreground">
+            Updating results…
+          </p>
+        ) : null}
         <Table>
           <TableHeader>
             <TableRow>
@@ -240,18 +194,25 @@ export function PropertyTable({
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
-            {filteredRows.length === 0 ? (
+          <TableBody
+            className={cn(
+              showPartialSkeleton && "pointer-events-none opacity-50 transition-opacity"
+            )}
+          >
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No properties match the current filters on this page.
+                  No properties match the current filters.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRows.map((property) => {
+              rows.map((property) => {
                 const isSelected = selectedPropertyId === property.id;
                 return (
-                  <TableRow key={property.remote_id} data-state={isSelected ? "selected" : undefined}>
+                  <TableRow
+                    key={property.remote_id}
+                    data-state={isSelected ? "selected" : undefined}
+                  >
                     <TableCell>
                       <div className="font-medium">{property.title}</div>
                       <div className="text-xs text-muted-foreground">#{property.remote_id}</div>
@@ -313,20 +274,18 @@ export function PropertyTable({
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onClick={() => setPage(Math.max(1, currentPage - 1))}
             disabled={!canGoPrevious || isFetching}
           >
             Previous
           </Button>
-
           <span className="text-sm text-muted-foreground">
             Page {currentPage} of {totalPages}
           </span>
-
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCurrentPage((page) => page + 1)}
+            onClick={() => setPage(currentPage + 1)}
             disabled={!canGoNext || isFetching}
           >
             Next
