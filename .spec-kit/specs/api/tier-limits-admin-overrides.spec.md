@@ -6,7 +6,7 @@
 **Apps:** `apps/api-fastapi/`  
 **Feature README:** `docs/features/tier-limits-admin-overrides/README.md`
 
-**CRG Framework Baseline Note (per monitoring directive):** Post-Phase 5.0: 11 core single-responsibility abstractions. This phase adds 'TierLimitEvaluator' (the 12th). New abstractions must remain stateless where possible. Track CRG after changes; re-assess formalization if duplication of limit logic or admin patterns emerges. Update this note on every commit.
+**CRG Framework Baseline Note (per monitoring directive):** Post-Phase 5.0: 11 core single-responsibility abstractions. This phase adds 'TierLimitEvaluator' (the 12th; confirmed via code-review-graph query_graph_tool file_summary + node id). Implementation complete: 69 tests passed 0 failures (63 legacy preserved + 6 new in test_tier_limits_overrides.py). All commits followed pre-pytest + git status --porcelain gates + CRG update. Status remains DRAFT pending explicit user "Manual Success" assertion (per spec-kit rules). No creep; new class is stateless, single-responsibility.
 
 ---
 
