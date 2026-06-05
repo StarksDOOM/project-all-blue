@@ -142,8 +142,7 @@ class UserCredentials(BaseModel):
     role: UserRole
     raw_claims: Dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        frozen = True  # Enforce immutability
+    model_config = {"frozen": True}  # Enforce immutability (Pydantic v2)
 
 
 class JWTTokenVerifier:
