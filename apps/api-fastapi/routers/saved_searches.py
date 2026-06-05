@@ -56,7 +56,7 @@ def create_saved_search(
 
     - Re-validates `filters` through PropertyFilterParams (sanitization + range checks).
     - Stores the canonical dict in filters_json (page omitted).
-    - user_id is taken from validated JWT claims (tenant isolation); payload.user_id ignored.
+    - user_id is taken from validated JWT claims (tenant isolation); client payload.user_id is optional and ignored.
     - Returns the persisted row (filters_json echo).
     - Raises HTTP 400 (via evaluator) if the user's role limit would be exceeded.
     """
