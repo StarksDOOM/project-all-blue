@@ -15,6 +15,19 @@ import {
   TransactionCreatePayload,
   TransactionRecord,
 } from "./types";
+
+/**
+ * Phase 5.0: fetch Supabase session token for protected route calls.
+ * In a full app this would be:
+ *   const { data: { session } } = await supabase.auth.getSession();
+ *   return session?.access_token ?? null;
+ * Here we support a conventional localStorage key (set by auth UI) so the
+ * React Query hooks can seamlessly inject Authorization: Bearer <JWT>.
+ */
+function getBearerToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem("supabase-access-token");
+}
 import type { SignatureRole } from "./transaction-types";
 import { resolveBathsForDisplay } from "./bathrooms";
 import { ensureRemaxPortalUrl } from "./portal-url";
@@ -346,9 +359,12 @@ export const api = {
 
   // STREAM 5 PHASE 3.0 saved search alert endpoints (user_id client supplied until auth)
   createSavedSearchAlert: async (payload: CreateSavedSearchPayload): Promise<SavedSearchAlert> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
@@ -359,10 +375,14 @@ export const api = {
   },
 
   listSavedSearchAlerts: async (userId: string): Promise<SavedSearchListResponse> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    // Phase 5.0: userId param kept for compat but server now derives from token for scoping
     const qs = new URLSearchParams({ user_id: userId });
     const response = await fetch(
       `${resolveApiBaseUrl()}/api/v1/saved-searches?${qs.toString()}`,
-      { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+      { method: "GET", headers, cache: "no-store" }
     );
     if (!response.ok) {
       throw new Error(`Failed to load saved searches: ${response.statusText}`);
@@ -374,9 +394,12 @@ export const api = {
     id: string,
     patch: Partial<Pick<SavedSearchAlert, "title" | "is_active">>
   ): Promise<SavedSearchAlert> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(id)}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(patch),
     });
     if (!response.ok) {
@@ -387,8 +410,12 @@ export const api = {
   },
 
   deleteSavedSearchAlert: async (id: string): Promise<void> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(id)}`, {
       method: "DELETE",
+      headers,
     });
     if (!response.ok) {
       const message = await parseErrorMessage(response, `Failed to delete alert: ${response.statusText}`);
@@ -396,12 +423,15 @@ export const api = {
     }
   },
 
-  // Phase 4.0: fetch match history + delivery status for a saved alert
+  // Phase 4.0/5.0: fetch match history + delivery status for a saved alert (token injected)
   listMatchesForAlert: async (alertId: string, userId: string): Promise<AlertMatchesResponse> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     const qs = new URLSearchParams({ user_id: userId });
     const response = await fetch(
       `${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(alertId)}/matches?${qs.toString()}`,
-      { method: "GET", headers: { "Content-Type": "application/json" }, cache: "no-store" }
+      { method: "GET", headers, cache: "no-store" }
     );
     if (!response.ok) {
       throw new Error(`Failed to load matches for alert: ${response.statusText}`);

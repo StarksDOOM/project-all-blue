@@ -200,6 +200,7 @@ class SearchMatchEngine:
 
                 match_row = SavedSearchMatch(
                     saved_search_alert_id=alert.id,
+                    user_id=alert.user_id,  # Phase 5.0: tenant isolation
                     property_id=property_obj.id,
                     match_details=details,
                 )

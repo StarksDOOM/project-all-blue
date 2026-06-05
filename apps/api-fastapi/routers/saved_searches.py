@@ -1,13 +1,11 @@
 """
-Saved Search Alerts router — STREAM 5 PHASE 3.0.
+Saved Search Alerts router — STREAM 5 PHASE 5.0 (RBAC + tenant isolation).
 
-POST /api/v1/saved-searches
-GET  /api/v1/saved-searches?user_id=...
-PATCH /api/v1/saved-searches/{alert_id}
-DELETE /api/v1/saved-searches/{alert_id}
+All routes now require valid Supabase JWT (local verification only).
+Queries and mutations are strictly scoped to credentials.user_id for tenant isolation.
+RoleChecker used for protected operations (e.g. mutations).
 
-User_id is client-supplied (demo / placeholder). Full ownership checks and
-JWT binding are out of scope until auth lands (see engineering-directives A07).
+See rbac-auth-infrastructure.spec.md for full contracts.
 """
 
 from __future__ import annotations
@@ -24,17 +22,26 @@ from schemas.saved_searches import (
     SavedSearchListResponse,
     SavedSearchUpdate,
 )
+from services.auth import RoleChecker, UserCredentials, UserRole, get_current_user
 
 router = APIRouter(prefix="/api/v1/saved-searches", tags=["saved-searches"])
+
+
+# Phase 5.0: protected; any authenticated user can create their own alert
+create_alert_checker = RoleChecker(
+    allowed_roles=[UserRole.CLIENT, UserRole.AGENT, UserRole.ADMIN]
+)
 
 
 @router.post(
     "",
     response_model=SavedSearchAlertOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(create_alert_checker)],
 )
 def create_saved_search(
     payload: SavedSearchCreate,
+    credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> SavedSearchAlertOut:
     """
@@ -42,6 +49,7 @@ def create_saved_search(
 
     - Re-validates `filters` through PropertyFilterParams (sanitization + range checks).
     - Stores the canonical dict in filters_json (page omitted).
+    - user_id is taken from validated JWT claims (tenant isolation); payload.user_id ignored.
     - Returns the persisted row (filters_json echo).
     """
     # Force re-validation + normalization (strips, price order, etc.)
@@ -55,7 +63,7 @@ def create_saved_search(
     filters_dict.pop("page", None)
 
     alert = SavedSearchAlert(
-        user_id=payload.user_id,
+        user_id=credentials.user_id,  # Phase 5.0: from validated token, not client payload
         title=payload.title.strip(),
         filters_json=filters_dict,
         is_active=True,
@@ -67,15 +75,21 @@ def create_saved_search(
     return SavedSearchAlertOut.model_validate(alert)
 
 
-@router.get("", response_model=SavedSearchListResponse)
+# Phase 5.0: list own alerts only (any authenticated role)
+list_alerts_checker = RoleChecker(
+    allowed_roles=[UserRole.CLIENT, UserRole.AGENT, UserRole.ADMIN]
+)
+
+
+@router.get("", response_model=SavedSearchListResponse, dependencies=[Depends(list_alerts_checker)])
 def list_saved_searches(
-    user_id: str = Query(..., min_length=1),
+    credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> SavedSearchListResponse:
-    """Return all alerts (active + inactive) for the supplied user_id, newest first."""
+    """Return all alerts (active + inactive) owned by the authenticated user, newest first."""
     stmt = (
         select(SavedSearchAlert)
-        .where(SavedSearchAlert.user_id == user_id)
+        .where(SavedSearchAlert.user_id == credentials.user_id)  # Phase 5.0: strict tenant filter
         .order_by(SavedSearchAlert.created_at.desc())  # type: ignore[attr-defined]
     )
     rows = session.exec(stmt).all()
@@ -84,14 +98,25 @@ def list_saved_searches(
     )
 
 
-@router.patch("/{alert_id}", response_model=SavedSearchAlertOut)
+update_delete_checker = RoleChecker(
+    allowed_roles=[UserRole.CLIENT, UserRole.AGENT, UserRole.ADMIN]
+)
+
+
+@router.patch("/{alert_id}", response_model=SavedSearchAlertOut, dependencies=[Depends(update_delete_checker)])
 def update_saved_search(
     alert_id: str,
     payload: SavedSearchUpdate,
+    credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> SavedSearchAlertOut:
-    """Update mutable fields (title, is_active for mute/unmute)."""
-    alert = session.get(SavedSearchAlert, alert_id)
+    """Update mutable fields (title, is_active for mute/unmute). Tenant scoped."""
+    # Phase 5.0: fetch and scope check
+    stmt = select(SavedSearchAlert).where(
+        SavedSearchAlert.id == alert_id,
+        SavedSearchAlert.user_id == credentials.user_id,  # strict tenant filter
+    )
+    alert = session.exec(stmt).first()
     if not alert:
         raise HTTPException(status_code=404, detail="Saved search not found")
 
@@ -106,36 +131,56 @@ def update_saved_search(
     return SavedSearchAlertOut.model_validate(alert)
 
 
-@router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(update_delete_checker)])
 def delete_saved_search(
     alert_id: str,
+    credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> None:
-    """Hard delete an alert (and leave historical matches for audit)."""
-    alert = session.get(SavedSearchAlert, alert_id)
+    """Hard delete an alert (and leave historical matches for audit). Tenant scoped."""
+    stmt = select(SavedSearchAlert).where(
+        SavedSearchAlert.id == alert_id,
+        SavedSearchAlert.user_id == credentials.user_id,
+    )
+    alert = session.exec(stmt).first()
     if not alert:
         raise HTTPException(status_code=404, detail="Saved search not found")
     session.delete(alert)
     session.commit()
 
 
-@router.get("/{alert_id}/matches")
+matches_checker = RoleChecker(
+    allowed_roles=[UserRole.CLIENT, UserRole.AGENT, UserRole.ADMIN]
+)
+
+
+@router.get("/{alert_id}/matches", dependencies=[Depends(matches_checker)])
 def list_matches_for_alert(
     alert_id: str,
-    user_id: str = Query(..., min_length=1),
+    credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
 ) -> dict:
     """
-    Return matches for a saved search alert, including Phase 4.0 delivery status.
+    Return matches for a saved search alert, including delivery status.
+    Phase 5.0: strictly scoped to the authenticated user's alerts (tenant isolation).
     Used by the dashboard match history ledger.
     """
-    alert = session.get(SavedSearchAlert, alert_id)
-    if not alert or alert.user_id != user_id:
+    # Verify ownership via scoped query (no leak of existence)
+    alert_stmt = select(SavedSearchAlert).where(
+        SavedSearchAlert.id == alert_id,
+        SavedSearchAlert.user_id == credentials.user_id,
+    )
+    alert = session.exec(alert_stmt).first()
+    if not alert:
         raise HTTPException(status_code=404, detail="Saved search not found")
 
     stmt = (
         select(SavedSearchMatch)
-        .where(SavedSearchMatch.saved_search_alert_id == alert_id)
+        .where(
+            SavedSearchMatch.saved_search_alert_id == alert_id,
+            # Additional direct filter for defense in depth (user_id on match)
+            SavedSearchMatch.user_id == credentials.user_id,
+        )
         .order_by(SavedSearchMatch.matched_at.desc())
     )
     matches = session.exec(stmt).all()

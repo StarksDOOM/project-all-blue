@@ -301,6 +301,8 @@ class SavedSearchMatch(SQLModel, table=True):
     saved_search_alert_id: str = Field(
         foreign_key="real_estate.saved_search_alerts.id", index=True
     )
+    # Phase 5.0: denormalized for direct tenant filtering without always joining alerts
+    user_id: str = Field(index=True)  # populated from parent alert at creation time
     property_id: str = Field(foreign_key="real_estate.properties.id", index=True)
     matched_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), index=True

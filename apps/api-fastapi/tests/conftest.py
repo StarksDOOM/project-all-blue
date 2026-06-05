@@ -6,6 +6,7 @@ Requires: schema bootstrapped (init_db), Docker Postgres up for CI/local integra
 
 from __future__ import annotations
 
+import os
 import secrets
 import sys
 from pathlib import Path
@@ -14,6 +15,14 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
+
+# Phase 5.0: ensure SUPABASE_JWT_SECRET is present *before* any import that triggers
+# services.auth module-level JWTTokenVerifier() construction. This prevents import-time
+# RuntimeError during test collection.
+os.environ.setdefault(
+    "SUPABASE_JWT_SECRET",
+    "test-secret-for-rbac-phase5-only-do-not-use-in-prod",
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -73,6 +82,20 @@ def _default_internal_signing(monkeypatch: pytest.MonkeyPatch) -> None:
     from config.docusign_settings import get_docusign_settings
 
     get_docusign_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _auth_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Phase 5.0 RBAC: provide a test JWT secret so module-level JWTTokenVerifier() succeeds.
+    Tests that need specific claims use local minting; this just prevents import-time crash.
+    """
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-secret-for-rbac-phase5-only-do-not-use-in-prod")
+    # Clear any cached verifiers if added later
+    try:
+        from services.auth import _default_verifier  # type: ignore[attr-defined]
+        # Re-init not strictly needed; secret read at construction time in tests
+    except Exception:
+        pass
 
 
 @pytest.fixture()
