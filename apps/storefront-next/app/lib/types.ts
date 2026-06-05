@@ -231,7 +231,7 @@ export interface SavedSearchListResponse {
 }
 
 export interface CreateSavedSearchPayload {
-  user_id: string;
+  user_id?: string; // optional/ignored; server uses authenticated user from JWT (Phase 5.0+)
   title: string;
   filters: Partial<PropertyFilterParams>; // subset without page
 }

@@ -357,15 +357,17 @@ export const api = {
     };
   },
 
-  // STREAM 5 PHASE 3.0 saved search alert endpoints (user_id client supplied until auth)
+  // STREAM 5 PHASE 3.0+ saved search alert endpoints (real auth via JWT token; no hardcoded test/demo user ids)
   createSavedSearchAlert: async (payload: CreateSavedSearchPayload): Promise<SavedSearchAlert> => {
     const token = getBearerToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
+    // do not send user_id; server sets from JWT (removes test/demo user id dependency)
+    const { user_id, ...rest } = payload as any;
     const response = await fetch(`${resolveApiBaseUrl()}/api/v1/saved-searches`, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(rest),
     });
     if (!response.ok) {
       const message = await parseErrorMessage(response, `Failed to save search alert: ${response.statusText}`);
@@ -374,14 +376,13 @@ export const api = {
     return response.json();
   },
 
-  listSavedSearchAlerts: async (userId: string): Promise<SavedSearchListResponse> => {
+  listSavedSearchAlerts: async (): Promise<SavedSearchListResponse> => {
     const token = getBearerToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    // Phase 5.0: userId param kept for compat but server now derives from token for scoping
-    const qs = new URLSearchParams({ user_id: userId });
+    // server derives user from JWT token for scoping (no user_id query needed)
     const response = await fetch(
-      `${resolveApiBaseUrl()}/api/v1/saved-searches?${qs.toString()}`,
+      `${resolveApiBaseUrl()}/api/v1/saved-searches`,
       { method: "GET", headers, cache: "no-store" }
     );
     if (!response.ok) {
@@ -424,13 +425,13 @@ export const api = {
   },
 
   // Phase 4.0/5.0: fetch match history + delivery status for a saved alert (token injected)
-  listMatchesForAlert: async (alertId: string, userId: string): Promise<AlertMatchesResponse> => {
+  listMatchesForAlert: async (alertId: string): Promise<AlertMatchesResponse> => {
     const token = getBearerToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const qs = new URLSearchParams({ user_id: userId });
+    // server derives user from JWT for scoping (no user_id query)
     const response = await fetch(
-      `${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(alertId)}/matches?${qs.toString()}`,
+      `${resolveApiBaseUrl()}/api/v1/saved-searches/${encodeURIComponent(alertId)}/matches`,
       { method: "GET", headers, cache: "no-store" }
     );
     if (!response.ok) {
