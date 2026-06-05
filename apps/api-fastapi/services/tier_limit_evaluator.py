@@ -33,7 +33,8 @@ from typing import Final
 from fastapi import HTTPException, status
 from sqlmodel import Session, func, select
 
-from models import SavedSearchAlert, UserRole
+from models import SavedSearchAlert
+from services.auth import UserRole
 
 logger = logging.getLogger(__name__)
 
