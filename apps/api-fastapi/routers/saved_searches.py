@@ -1,11 +1,12 @@
 """
-Saved Search Alerts router — STREAM 5 PHASE 5.0 (RBAC + tenant isolation).
+Saved Search Alerts router — STREAM 5 PHASE 5.0 (RBAC + tenant isolation) + 5.1 (tier limits).
 
 All routes now require valid Supabase JWT (local verification only).
 Queries and mutations are strictly scoped to credentials.user_id for tenant isolation.
 RoleChecker used for protected operations (e.g. mutations).
+Phase 5.1: POST create now additionally runs TierLimitEvaluator (after auth, before persist).
 
-See rbac-auth-infrastructure.spec.md for full contracts.
+See rbac-auth-infrastructure.spec.md and tier-limits-admin-overrides.spec.md for full contracts.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from schemas.saved_searches import (
     SavedSearchUpdate,
 )
 from services.auth import RoleChecker, UserCredentials, UserRole, get_current_user
+from services.tier_limit_evaluator import TierLimitEvaluator
 
 router = APIRouter(prefix="/api/v1/saved-searches", tags=["saved-searches"])
 
@@ -47,10 +49,16 @@ def create_saved_search(
     """
     Persist a bookmarkable filter matrix as an active alert.
 
+    Phase 5.1: after RBAC (create_alert_checker + get_current_user) and filter validation,
+    but before any DB write, TierLimitEvaluator.assert_can_create_search is invoked.
+    This enforces role-based capacity (client=3, agent=25, admin=unlimited) via an
+    isolated COUNT query on active alerts for the authenticated user_id only.
+
     - Re-validates `filters` through PropertyFilterParams (sanitization + range checks).
     - Stores the canonical dict in filters_json (page omitted).
     - user_id is taken from validated JWT claims (tenant isolation); payload.user_id ignored.
     - Returns the persisted row (filters_json echo).
+    - Raises HTTP 400 (via evaluator) if the user's role limit would be exceeded.
     """
     # Force re-validation + normalization (strips, price order, etc.)
     try:
@@ -61,6 +69,10 @@ def create_saved_search(
     # Drop page if client sent it; keep everything else
     filters_dict = validated.model_dump(exclude_none=True)
     filters_dict.pop("page", None)
+
+    # Phase 5.1: enforce per-role tier limit (stateless evaluator, session-scoped query)
+    evaluator = TierLimitEvaluator(session)
+    evaluator.assert_can_create_search(credentials.user_id, credentials.role)
 
     alert = SavedSearchAlert(
         user_id=credentials.user_id,  # Phase 5.0: from validated token, not client payload

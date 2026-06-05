@@ -31,7 +31,9 @@ def _mint_test_jwt(user_id: str = "11111111-1111-1111-1111-111111111111", role: 
 
 
 def test_create_and_list_saved_search(api_client: TestClient):
-    token = _mint_test_jwt()
+    # Use admin role (unlimited) so pre-existing rows for the default test user do not trigger
+    # Phase 5.1 tier limit (client=3). Tenant isolation and limit behavior covered in dedicated tests.
+    token = _mint_test_jwt(role="admin")
     headers = {"Authorization": f"Bearer {token}"}
     payload = {
         "user_id": "11111111-1111-1111-1111-111111111111",  # ignored; taken from validated token (Phase 5.0)
@@ -56,7 +58,9 @@ def test_create_and_list_saved_search(api_client: TestClient):
 
 
 def test_rejects_bad_filters(api_client: TestClient):
-    token = _mint_test_jwt()
+    # Use admin role (unlimited) so pre-existing rows for the default test user do not trigger
+    # Phase 5.1 tier limit (client=3). Tenant isolation and limit behavior covered in dedicated tests.
+    token = _mint_test_jwt(role="admin")
     headers = {"Authorization": f"Bearer {token}"}
     bad = {
         "user_id": "11111111-1111-1111-1111-111111111111",
