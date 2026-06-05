@@ -204,14 +204,14 @@ def ensure_saved_searches_schema() -> None:
 
     - saved_search_alerts: user persisted filter matrix (filters_json stores canonical Phase 2 shape)
     - saved_search_matches: structured hits written by search_match_engine post-ingestion insert
-    Safe to run repeatedly (IF NOT EXISTS + ALTER ADD IF NOT EXISTS for upgrade safety on test/dev DBs).
+    Safe to run repeatedly (IF NOT EXISTS + ALTER ADD IF NOT EXISTS for upgrade safety).
     """
     create_statements = [
         """
         CREATE TABLE IF NOT EXISTS real_estate.saved_search_alerts (
             id VARCHAR PRIMARY KEY,
             tenant_id VARCHAR NOT NULL DEFAULT 'tenant_all_blue',
-            user_id VARCHAR NOT NULL DEFAULT 'legacy_tenant',
+            user_id VARCHAR NOT NULL,
             title VARCHAR(80) NOT NULL,
             filters_json JSONB NOT NULL,
             is_active BOOLEAN NOT NULL DEFAULT TRUE,
@@ -228,7 +228,7 @@ def ensure_saved_searches_schema() -> None:
             tenant_id VARCHAR NOT NULL DEFAULT 'tenant_all_blue',
             saved_search_alert_id VARCHAR NOT NULL
                 REFERENCES real_estate.saved_search_alerts(id),
-            user_id VARCHAR NOT NULL DEFAULT 'legacy_tenant',
+            user_id VARCHAR NOT NULL,
             property_id VARCHAR NOT NULL
                 REFERENCES real_estate.properties(id),
             matched_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -245,14 +245,14 @@ def ensure_saved_searches_schema() -> None:
         "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS server_version INTEGER",
         "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS last_modified BIGINT",
         "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
-        # Phase 5.0: additive user_id for tenant isolation (default for legacy dev data)
-        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS user_id VARCHAR DEFAULT 'legacy_tenant'",
+        # Phase 5.0: additive user_id for tenant isolation (no default; all inserts now provide real user_id from auth)
+        "ALTER TABLE real_estate.saved_search_alerts ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS tenant_id VARCHAR",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS server_version INTEGER",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS last_modified BIGINT",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ",
-        # Phase 5.0: user_id for direct tenant filtering on matches (additive, legacy default)
-        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS user_id VARCHAR DEFAULT 'legacy_tenant'",
+        # Phase 5.0: user_id for direct tenant filtering on matches (additive)
+        "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         # Phase 4.0 delivery tracking columns (additive, safe on existing DBs)
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS delivery_status VARCHAR DEFAULT 'pending'",
         "ALTER TABLE real_estate.saved_search_matches ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ",

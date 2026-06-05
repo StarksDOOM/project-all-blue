@@ -11,9 +11,11 @@ from schemas.property_filters import PropertyFilterParams
 
 
 class SavedSearchCreate(BaseModel):
-    """Client payload to persist a filter matrix as an alert."""
+    """Client payload to persist a filter matrix as an alert.
+    user_id is optional and ignored; the server derives the authenticated user from the JWT token (Phase 5.0+).
+    """
 
-    user_id: str = Field(min_length=1, description="Client-supplied UUID placeholder until auth")
+    user_id: Optional[str] = Field(default=None, description="Ignored; derived from auth token")
     title: str = Field(min_length=1, max_length=80)
     filters: PropertyFilterParams = Field(
         description="Subset of PropertyFilterParams; page/limit omitted by client"
