@@ -358,6 +358,67 @@ class IngestionOrchestrator:
             job = orchestrator._create_job(portal)
             return orchestrator.execute_sync_job(driver, job)
 
+    @classmethod
+    def trigger_sync_cycle(cls, source_portal: str = "remaxrd") -> dict[str, Any]:
+        """
+        Purpose:
+            Named administrative trigger entrypoint for on-demand scraper execution
+            (STREAM 5 PHASE 5.1 tier-limits-admin-overrides). Matches the contract
+            referenced by the admin overrides endpoint and spec for BackgroundTasks
+            dispatch. Delegates to the existing run_sync_for_portal implementation
+            which owns its own engine Session and full ingestion lifecycle.
+
+        Lifecycle:
+            - Classmethod; safe to call from any context including FastAPI
+              BackgroundTasks.add_task without request-scoped resources.
+            - Invoked once per admin /scrapers/run request (or scheduled jobs).
+            - Internally creates a transient Session(engine), runs the full
+              portal sync, then closes resources before return.
+
+        Thread-safety:
+            Safe. No shared mutable instance state; each invocation acquires
+            its own short-lived DB session. The underlying drivers and engine
+            are designed for concurrent use in the sync worker pattern.
+
+        Collaborators:
+            - cls.run_sync_for_portal (delegate).
+            - IngestionOrchestrator.__init__ / execute_sync_job (internal).
+            - DriverFactory + BaseDriver impls.
+            - FastAPI BackgroundTasks (consumer from the admin route).
+            - database.init_db / engine (for fresh session in background).
+
+        Invariants:
+            - Always initializes DB schema before work (init_db()).
+            - Uses a default of "remaxrd" when no portal specified (primary driver).
+            - The return value (job metrics dict) is produced but ignored by
+              add_task callers (fire-and-forget).
+            - Exceptions are not swallowed here (upper wrappers like
+              execute_portal_sync_background do catch/print for resilience).
+
+        Parameters:
+            source_portal (str): Portal key (e.g. "remaxrd"). Defaults to the
+                primary RE/MAX driver for the admin override use case.
+
+        Returns:
+            dict[str, Any]: The result of execute_sync_job (fetched/inserted/updated
+                counts, elapsed, status etc.). Caller of add_task receives None.
+
+        Raises:
+            ValueError: If unknown portal (propagated from DriverFactory).
+            Any exception raised by drivers or DB during the sync (will be
+                visible in logs; background task failure does not affect the
+                202 response to admin).
+
+        Side Effects:
+            - Performs a full ingestion cycle: fetch from portal, upsert
+              PropertyListing rows, create/update IngestionSyncJob, run
+              post-insert match evaluation for alerts, optional enrichment.
+            - Writes to real_estate schema (properties, ingestion_sync_jobs,
+              saved_search_matches etc.).
+            - Logs at INFO level for job lifecycle (same as scheduled runs).
+        """
+        return cls.run_sync_for_portal(source_portal)
+
 
 def execute_portal_sync_background(source_portal: str) -> None:
     """

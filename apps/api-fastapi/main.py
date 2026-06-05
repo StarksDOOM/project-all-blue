@@ -85,6 +85,9 @@ app.include_router(docusign.router)
 app.include_router(realtime.router)
 app.include_router(saved_searches.router)
 
+# Phase 5.1: mount the v1 scrapers admin override router (exposes POST /api/v1/scrapers/run)
+app.include_router(admin.scraper_admin_router)
+
 
 @app.get("/health")
 def health() -> dict[str, str]:
