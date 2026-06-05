@@ -20,6 +20,12 @@ When work touches architecture spanning multiple apps, docs, or schemas, **check
 
 Until then, stay on CRG.
 
+## Regression-Free Fixes (agent behavior)
+
+See root `Agents.md` § "Regression-Free Fixes (ZERO-TOLERANCE)" and the committed `agent-operating-manual.md` for the full rule.
+
+**Summary for implementation:** A "fix X" request is narrowly scoped to X only. Do not use it as an excuse to touch, refactor, or alter unrelated code, data, behavior, or tests. Verify blast radius (CRG + tests + manual) and ask before broadening. "Fixing the gallery" does not mean "also change how lists work" or "break auth for alerts."
+
 ## Python OOP & Documentation Standards (mandatory for apps/api-fastapi)
 
 **All Python code** written or modified under `apps/api-fastapi/` **MUST** be implemented using strict object-oriented programming and must be comprehensively documented. This is a ZERO-TOLERANCE rule, extending the precedent established by the `ingestion-oop` phase (STREAM 2 PHASE 4.1).

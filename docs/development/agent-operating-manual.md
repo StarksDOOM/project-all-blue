@@ -36,6 +36,25 @@ No `git add` / `git commit` until applicable tests pass with **zero failures**.
 
 User approval (**Go**, **Stage this**) required before staging.
 
+## Regression-Free Fixes (ZERO-TOLERANCE)
+
+When the user instructs you to **fix** something (a bug report, "the gallery is broken for X", "remove the test data", "make Y work"), that directive is **narrowly scoped**. Implementing the fix **must not**:
+
+- Break, regress, or change behavior in any other part of the system.
+- Introduce new bugs, side effects, or altered defaults in unrelated components, pages, endpoints, models, or flows.
+- "While I'm here" cleanups, refactors, or expansions that touch areas outside the exact request.
+- Assume that fixing A automatically justifies touching B, C, or the test suite in ways that could destabilize them.
+
+**Rules:**
+- Scope the change to the minimal correct fix for the stated problem + root cause only.
+- Before editing, use available tools (CRG `get_impact_radius_tool`, grep, code review of callers) to understand the blast radius.
+- Run **all** applicable full test gates (not just "the changed file") + manual verification of the reported symptom **and** areas that could be affected.
+- If any ambiguity exists about whether a change could affect other things, **stop and ask the user** for clarification or explicit approval to broaden scope — do not guess or "be helpful" by doing extra.
+- Document in thinking (and commit message if applicable) exactly what was changed and why it is isolated.
+- This rule applies on top of (and does not replace) the pre-commit test gate, small atomic commits, spec-kit, and clean-tree rules.
+
+Violations are treated as seriously as other ZERO-TOLERANCE rules. The user has been explicit that "fix X" does **not** mean "break or change Y".
+
 ## Version control
 
 - Feature branches off `develop`.
