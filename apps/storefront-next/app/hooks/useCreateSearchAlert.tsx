@@ -19,8 +19,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/** Demo user id until JWT/tenant auth is implemented (see spec §4). */
-const DEMO_USER_ID = "11111111-1111-1111-1111-111111111111";
 
 function deriveDefaultTitle(filters: ReturnType<typeof useFilterParams>["appliedFilters"]): string {
   const parts: string[] = [];
@@ -53,7 +51,6 @@ export function useCreateSearchAlert() {
         page: undefined, // never persist pagination
       };
       return api.createSavedSearchAlert({
-        user_id: DEMO_USER_ID,
         title: chosenTitle.trim(),
         filters: filtersForSave,
       });

@@ -12,8 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
-const DEMO_USER_ID = "11111111-1111-1111-1111-111111111111";
-
 function formatFilterChips(filters: Record<string, unknown>): React.ReactNode {
   const chips: string[] = [];
   if (filters.sector) chips.push(String(filters.sector));
@@ -40,8 +38,8 @@ export default function SavedSearchAlertsPage() {
   const qc = useQueryClient();
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: savedSearchKeys.list(DEMO_USER_ID),
-    queryFn: () => api.listSavedSearchAlerts(DEMO_USER_ID),
+    queryKey: savedSearchKeys.list(),
+    queryFn: () => api.listSavedSearchAlerts(),
     staleTime: 30_000,
   });
 
@@ -60,7 +58,7 @@ export default function SavedSearchAlertsPage() {
 
   const { data: matchesData } = useQuery({
     queryKey: expandedAlertId ? savedSearchKeys.matches(expandedAlertId) : savedSearchKeys.matches("__none__"),
-    queryFn: () => api.listMatchesForAlert(expandedAlertId!, DEMO_USER_ID),
+    queryFn: () => api.listMatchesForAlert(expandedAlertId!),
     enabled: !!expandedAlertId,
     staleTime: 30_000,
   });
@@ -230,7 +228,6 @@ export default function SavedSearchAlertsPage() {
 
         <p className="pt-4 text-center text-[11px] text-muted-foreground">
           Las coincidencias se registran en segundo plano al ingerir nuevas propiedades (ver spec PHASE 3.0).
-          User ID demo: {DEMO_USER_ID}
         </p>
       </div>
     </main>
