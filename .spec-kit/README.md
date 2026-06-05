@@ -25,6 +25,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/saved-searches-alerts.spec.md](specs/api/saved-searches-alerts.spec.md) | STREAM 5 PHASE 3.0 | SHIPPED |
 | [api/outbound-notification-delivery.spec.md](specs/api/outbound-notification-delivery.spec.md) | STREAM 5 PHASE 4.1 (external email gateway) | DRAFT |
 | [api/rbac-auth-infrastructure.spec.md](specs/api/rbac-auth-infrastructure.spec.md) | STREAM 5 PHASE 5.0 | DRAFT |
+| [api/tier-limits-admin-overrides.spec.md](specs/api/tier-limits-admin-overrides.spec.md) | STREAM 5 PHASE 5.1 | DRAFT |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -47,6 +48,7 @@ STREAM 5 — Storefront performance
   PHASE 4.0  outbound-notification-delivery (jinja2 email compiler + dispatcher + match history ledger) [DRAFT; baseline started at 7]
   PHASE 4.1  external-email-gateway (Resend via httpx, EmailClient Protocol, DI, network error handling) [DRAFT; update baseline, no creep, full docs]
   PHASE 5.0  rbac-auth-infrastructure (local JWT validation, RBAC RoleChecker, tenant user_id isolation on SavedSearch) [DRAFT; expands baseline to 11; strict local crypto, no network creep]
+  PHASE 5.1  tier-limits-admin-overrides (per-role SavedSearch caps via TierLimitEvaluator, admin-only scraper trigger via BackgroundTasks) [DRAFT; +1 abstraction to 12; atomic commits + full isolation tests]
 ```
 
 ## Developer tooling
