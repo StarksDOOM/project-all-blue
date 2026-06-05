@@ -121,14 +121,13 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [syncFromPortal, setSyncFromPortal] = useState(false);
 
-  const { data: detailResult, isLoading, isError, error, isFetching } = useQuery({
-    queryKey: propertyKeys.detail(propertyId, syncFromPortal ? "portal" : "cached"),
+  const { data: detailResult, isLoading, isError, error, isFetching, refetch } = useQuery({
+    queryKey: propertyKeys.detail(propertyId, "portal"),
     queryFn: () =>
-      getPropertyDetail(propertyId, { refreshFromPortal: syncFromPortal }),
+      getPropertyDetail(propertyId, { refreshFromPortal: true }),
     enabled: propertyId.length > 0,
-    staleTime: syncFromPortal ? 0 : 120_000,
+    staleTime: 120_000,
     refetchOnMount: false,
     retry: 1,
     retryDelay: 1500,
@@ -187,7 +186,7 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                     variant="outline"
                     size="sm"
                     disabled={isFetching}
-                    onClick={() => setSyncFromPortal(true)}
+                    onClick={() => refetch()}
                   >
                     {isFetching ? "Sincronizando…" : "Sincronizar con portal"}
                   </Button>

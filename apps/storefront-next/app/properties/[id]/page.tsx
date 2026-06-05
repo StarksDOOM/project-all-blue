@@ -9,15 +9,15 @@ interface PropertyDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-/** RSC prefetch — detail hydrates instantly; portal sync stays on-demand in the client. */
+/** RSC prefetch with portal sync for fresh data + images; client also starts with live sync for gallery. */
 export default async function PropertyDetailPage({ params }: PropertyDetailPageProps) {
   const { id: propertyId } = await params;
   const queryClient = getQueryClient();
 
   if (propertyId) {
     await queryClient.prefetchQuery({
-      queryKey: propertyKeys.detail(propertyId, "cached"),
-      queryFn: () => fetchPropertyDetail(propertyId, { refreshFromPortal: false }),
+      queryKey: propertyKeys.detail(propertyId, "portal"),
+      queryFn: () => fetchPropertyDetail(propertyId, { refreshFromPortal: true }),
     });
   }
 
