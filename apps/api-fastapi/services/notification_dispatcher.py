@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from fastapi import BackgroundTasks
 from sqlmodel import Session
 
-from models import NotificationDeliveryStatus, SavedSearchMatch
+from models import LegalContract, NotificationDeliveryStatus, SavedSearchMatch
 
 if TYPE_CHECKING:
     from services.email_client import EmailClient
@@ -217,3 +217,98 @@ class NotificationDispatcher:
         finally:
             if session:
                 session.close()
+
+    def dispatch_contract_executed(
+        self,
+        background_tasks: BackgroundTasks,
+        contract: LegalContract,
+        property_title: str,
+        recipient: str,
+    ) -> None:
+        """
+        Schedule the delivery of a contract execution notification email in the background.
+
+        Purpose:
+            Trigger email alerts for agents and buyers when a standalone property contract
+            reaches the 'executed' status via Connect callbacks.
+
+        Lifecycle:
+            Called by ContractLifecycleManager when processing webhook completion events.
+
+        Thread-safety:
+            Safe. Schedules execution asynchronously via BackgroundTasks.
+
+        Collaborators:
+            - BackgroundTasks
+            - LegalContract
+
+        Invariants:
+            - Schedules direct delivery without creating a SavedSearchMatch row.
+
+        Parameters:
+            background_tasks (BackgroundTasks): Injected task queue.
+            contract (LegalContract): The executed contract.
+            property_title (str): Title of the listing.
+            recipient (str): Destination email address.
+
+        Returns:
+            None.
+        """
+        background_tasks.add_task(
+            self._deliver_contract_notification,
+            contract_id=contract.id,
+            envelope_id=contract.docusign_envelope_id or "—",
+            property_title=property_title,
+            recipient=recipient,
+        )
+
+    async def _deliver_contract_notification(
+        self,
+        contract_id: str,
+        envelope_id: str,
+        property_title: str,
+        recipient: str,
+    ) -> None:
+        """
+        Internal background task to send execution email alert.
+
+        Purpose:
+            Render the text notification and execute client transport delivery.
+
+        Lifecycle:
+            Called asynchronously by FastAPI background queue.
+
+        Thread-safety:
+            Safe. Uses stateless email transport.
+        """
+        try:
+            subject = f"[All Blue] Contrato Firmado — {property_title[:60]}"
+            body = (
+                f"El Acuerdo de Reserva de Propiedad ha sido firmado por todas las partes.\n\n"
+                f"Contract ID: {contract_id}\n"
+                f"Property: {property_title}\n"
+                f"DocuSign Envelope ID: {envelope_id}\n"
+            )
+
+            success = await self._email_client.send_email(
+                recipient, subject, body
+            )
+            if success:
+                logger.info(
+                    "Contract execution notification sent successfully: contract_id=%s recipient=%s",
+                    contract_id,
+                    recipient,
+                )
+            else:
+                logger.warning(
+                    "Contract execution email delivery failed: contract_id=%s recipient=%s",
+                    contract_id,
+                    recipient,
+                )
+        except Exception as exc:
+            logger.exception(
+                "Fatal error dispatching contract execution email for contract %s: %s",
+                contract_id,
+                exc,
+            )
+
