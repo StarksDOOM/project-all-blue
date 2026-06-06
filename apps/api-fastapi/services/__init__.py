@@ -9,9 +9,11 @@ from services.sync_service import (
     execute_portal_sync_background,
     run_portal_sync,
 )
+from services.wholesale_pricing_engine import WholesalePricingEngine
 
 __all__ = [
     "IngestionOrchestrator",
     "execute_portal_sync_background",
     "run_portal_sync",
-]
+    "WholesalePricingEngine",
+]
