@@ -1,6 +1,6 @@
 # Spec: DocuSign Connect Webhooks & HMAC Signature Validation
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.1  
 **Branch:** `feat/stream-6-phase-1.1-docusign-connect-webhooks` ← `develop`  
 **Apps:** `apps/api-fastapi/`  

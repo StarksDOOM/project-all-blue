@@ -1,6 +1,6 @@
 # Spec: Contract Generation Engine & DocuSign E2E
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.0  
 **Branch:** `feat/stream-6-phase-1.0-contract-generation-docusign` ← `develop`  
 **Apps:** `apps/api-fastapi/`, `apps/storefront-next/`  
