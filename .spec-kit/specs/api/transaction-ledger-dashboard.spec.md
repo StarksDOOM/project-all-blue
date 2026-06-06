@@ -1,6 +1,6 @@
 # Spec: Transaction Ledger Dashboard
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.2  
 **Branch:** `feat/stream-6-phase-1.2-transaction-ledger-dashboard` ← `develop`  
 **Apps:** `apps/api-fastapi/`, `apps/storefront-next/`  
