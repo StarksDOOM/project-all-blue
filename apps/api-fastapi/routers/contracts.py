@@ -21,6 +21,8 @@ from schemas.contracts import (
     ContractResponse,
     ContractGenerateRequest,
     ContractGenerateResponse,
+    DashboardContractProperty,
+    DashboardContractResponse,
 )
 from services.auth import RoleChecker, UserCredentials, UserRole, get_current_user
 from services.contract_dispatcher import ContractDispatcher
@@ -34,6 +36,7 @@ from services.contract_service import (
 from services.docusign_webhook_validator import DocuSignWebhookValidator
 from services.contract_lifecycle_manager import ContractLifecycleManager
 from services.notification_dispatcher import NotificationDispatcher
+from services.contract_query_service import ContractQueryService
 
 logger = logging.getLogger(__name__)
 
@@ -250,3 +253,66 @@ async def docusign_webhook_callback(
     )
 
     return {"status": "success"}
+
+
+def get_query_service() -> ContractQueryService:
+    """Dependency resolver for ContractQueryService."""
+    return ContractQueryService()
+
+
+# Protected: only agent and admin may retrieve transaction ledger contracts list
+ledger_checker = RoleChecker(allowed_roles=[UserRole.AGENT, UserRole.ADMIN])
+
+
+@router.get(
+    "",
+    response_model=list[DashboardContractResponse],
+    dependencies=[Depends(ledger_checker)],
+)
+def list_contracts(
+    credentials: UserCredentials = Depends(get_current_user),
+    session: Session = Depends(get_db_session),
+    query_service: ContractQueryService = Depends(get_query_service),
+) -> list[DashboardContractResponse]:
+    """
+    Retrieve transaction ledger contracts list for Agent / Admin dashboard.
+
+    Purpose:
+        Perform dynamic role-scoped database query to fetch generated DocuSign
+        contracts and serialize them with basic associated property details
+        to avoid lazy loading exceptions.
+
+    Lifecycle:
+        Called by storefront client when viewing the transaction dashboard.
+
+    Thread-safety:
+        Fully thread-safe. Uses request-scoped FastAPI sessions.
+
+    Collaborators:
+        - ContractQueryService (fetches raw database tuples)
+        - Session (database transactions)
+        - UserCredentials (agent/admin claims)
+
+    Invariants:
+        - Denies access to clients (returns 403 via RoleChecker).
+        - Scopes contracts to current user if role is AGENT.
+    """
+    raw_results = query_service.get_ledger_contracts(session, credentials)
+
+    response_items = []
+    for contract, listing in raw_results:
+        prop_meta = None
+        if listing:
+            prop_meta = DashboardContractProperty(
+                title=listing.title,
+                price_usd=listing.price_usd,
+            )
+        response_items.append(
+            DashboardContractResponse(
+                id=contract.id,
+                created_at=contract.generated_at,
+                status=contract.docusign_status,
+                property=prop_meta,
+            )
+        )
+    return response_items

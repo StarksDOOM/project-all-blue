@@ -256,4 +256,16 @@ export interface ContractGenerateResponse {
   envelope_id: string;
   status: string;
   contract_id: string;
+}
+
+export interface DashboardContractProperty {
+  title: string;
+  price_usd: number;
+}
+
+export interface DashboardContract {
+  id: string;
+  created_at: string;
+  status: string | null;
+  property: DashboardContractProperty | null;
 }

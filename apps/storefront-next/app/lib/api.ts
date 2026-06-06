@@ -15,6 +15,7 @@ import {
   TransactionCreatePayload,
   TransactionRecord,
   ContractGenerateResponse,
+  DashboardContract,
 } from "./types";
 
 /**
@@ -661,6 +662,21 @@ export const api = {
       throw new Error(message);
     }
 
+    return response.json();
+  },
+
+  listContracts: async (): Promise<DashboardContract[]> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(`${resolveApiBaseUrl()}/api/v1/contracts`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load contracts: ${response.statusText}`);
+    }
     return response.json();
   },
 };

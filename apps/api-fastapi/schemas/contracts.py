@@ -50,3 +50,21 @@ class ContractGenerateResponse(BaseModel):
     envelope_id: str = Field(..., description="The GUID tracking the dispatched DocuSign envelope")
     status: str = Field(..., description="The status of the envelope dispatch (e.g. 'sent')")
     contract_id: str = Field(..., description="The ID of the generated LegalContract database record")
+
+
+class DashboardContractProperty(BaseModel):
+    """
+    Flat property representation for transaction dashboard.
+    """
+    title: str = Field(..., description="The title of the property")
+    price_usd: float = Field(..., description="The list price of the property in USD")
+
+
+class DashboardContractResponse(BaseModel):
+    """
+    Response schema for contract list items in the transaction ledger dashboard.
+    """
+    id: str = Field(..., description="The unique ID of the contract")
+    created_at: datetime = Field(..., description="Creation date and time of the contract")
+    status: Optional[str] = Field(None, description="The signature status from DocuSign (e.g. 'sent', 'executed')")
+    property: Optional[DashboardContractProperty] = Field(None, description="Associated property details")
