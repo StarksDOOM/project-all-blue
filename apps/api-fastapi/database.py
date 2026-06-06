@@ -57,8 +57,11 @@ def ensure_transaction_schema() -> None:
         """
         CREATE TABLE IF NOT EXISTS real_estate.legal_contracts (
             id VARCHAR PRIMARY KEY,
-            transaction_session_id VARCHAR NOT NULL
+            transaction_session_id VARCHAR
                 REFERENCES real_estate.transaction_sessions(id),
+            property_id VARCHAR
+                REFERENCES real_estate.properties(id),
+            user_id VARCHAR,
             file_path VARCHAR,
             storage_url VARCHAR,
             document_body TEXT NOT NULL DEFAULT '',
@@ -100,14 +103,49 @@ def ensure_docusign_schema() -> None:
     statements = [
         "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS docusign_envelope_id VARCHAR",
         "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS docusign_status VARCHAR",
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS property_id VARCHAR",
+        "ALTER TABLE real_estate.legal_contracts ADD COLUMN IF NOT EXISTS user_id VARCHAR",
         """
         CREATE INDEX IF NOT EXISTS ix_legal_contracts_docusign_envelope_id
         ON real_estate.legal_contracts (docusign_envelope_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_legal_contracts_property_id
+        ON real_estate.legal_contracts (property_id)
+        """,
+        """
+        CREATE INDEX IF NOT EXISTS ix_legal_contracts_user_id
+        ON real_estate.legal_contracts (user_id)
         """,
     ]
     with engine.connect() as connection:
         for statement in statements:
             connection.execute(text(statement))
+
+        # Safely alter column for Postgres (SQLite does not support ALTER COLUMN ALTER TYPE/DROP NOT NULL)
+        if engine.dialect.name == "postgresql":
+            try:
+                connection.execute(text(
+                    "ALTER TABLE real_estate.legal_contracts ALTER COLUMN transaction_session_id DROP NOT NULL"
+                ))
+            except Exception:
+                pass
+            try:
+                connection.execute(text(
+                    "ALTER TABLE real_estate.legal_contracts "
+                    "ADD CONSTRAINT fk_legal_contracts_property "
+                    "FOREIGN KEY (property_id) REFERENCES real_estate.properties(id) "
+                    "ON DELETE SET NULL "
+                    "NOT VALID"
+                ))
+            except Exception:
+                pass
+            try:
+                connection.execute(text(
+                    "ALTER TABLE real_estate.legal_contracts VALIDATE CONSTRAINT fk_legal_contracts_property"
+                ))
+            except Exception:
+                pass
         connection.commit()
 
 

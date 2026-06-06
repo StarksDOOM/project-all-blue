@@ -189,16 +189,47 @@ class TransactionSession(SQLModel, table=True):
 
 
 class LegalContract(SQLModel, table=True):
-    """Generated legal artifact bound to one ``TransactionSession``."""
+    """
+    Generated legal artifact bound to a TransactionSession or a PropertyListing.
+
+    Purpose:
+        Track legal contracts generated via DocuSign, recording their signing
+        status, envelope IDs, document hashes, and physical file paths.
+
+    Lifecycle:
+        - Created when a contract draft is initialized or generated for a
+          property listing.
+        - Persisted in the database.
+        - Updated during the signature/execution process (e.g. from Connect webhooks).
+
+    Thread-safety:
+        Instances are not thread-safe. Standard SQLAlchemy/SQLModel session
+        concurrency guidelines apply.
+
+    Collaborators:
+        - TransactionSession (optional link for multi-party transaction flows)
+        - PropertyListing (link to listing context)
+        - User (agent/admin generating the contract)
+        - DocuSign (envelope tracking)
+    """
 
     __tablename__ = "legal_contracts"
     __table_args__ = {"schema": "real_estate"}
 
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True, index=True)
-    transaction_session_id: str = Field(
+    transaction_session_id: Optional[str] = Field(
+        default=None,
         foreign_key="real_estate.transaction_sessions.id",
         index=True,
+        nullable=True,
     )
+    property_id: Optional[str] = Field(
+        default=None,
+        foreign_key="real_estate.properties.id",
+        index=True,
+        nullable=True,
+    )
+    user_id: Optional[str] = Field(default=None, index=True)
     file_path: Optional[str] = Field(default=None, nullable=True)
     storage_url: Optional[str] = Field(default=None, nullable=True)
     document_body: str = Field(default="")
