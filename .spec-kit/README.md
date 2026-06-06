@@ -27,6 +27,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/rbac-auth-infrastructure.spec.md](specs/api/rbac-auth-infrastructure.spec.md) | STREAM 5 PHASE 5.0 | DRAFT |
 | [api/tier-limits-admin-overrides.spec.md](specs/api/tier-limits-admin-overrides.spec.md) | STREAM 5 PHASE 5.1 | DRAFT |
 | [api/contract-generation-docusign.spec.md](specs/api/contract-generation-docusign.spec.md) | STREAM 6 PHASE 1.0 | DRAFT |
+| [api/docusign-connect-webhooks.spec.md](specs/api/docusign-connect-webhooks.spec.md) | STREAM 6 PHASE 1.1 | DRAFT |
 
 ## Roadmap map (legal & execution pipeline)
 
