@@ -64,6 +64,7 @@ Violations are treated as seriously as other ZERO-TOLERANCE rules. The user has 
 
 ## Version control
 
+- **Branching Strategy**: Each new phase or stream must have its own explicit branching strategy (branching off `develop`).
 - Feature branches off `develop`.
 - Chunk commits into **small, atomic units** after tests + user approval (per the "Small commits rule" in Agents.md — one focused change per commit, no large bundles).
 - **Clean tree before merge** — `git status` must be clean immediately before `git merge`.
