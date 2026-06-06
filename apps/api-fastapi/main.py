@@ -29,7 +29,7 @@ from database import (
     ensure_transaction_schema,
     init_db,
 )
-from routers import admin, contracts, docusign, properties, realtime, saved_searches, transactions
+from routers import admin, analytics, contracts, docusign, properties, realtime, saved_searches, transactions
 
 # Load DATABASE_URL, CORS_ORIGINS, ADSPOWER_* from apps/api-fastapi/.env
 load_dotenv()
@@ -84,6 +84,7 @@ app.include_router(transactions.router)
 app.include_router(docusign.router)
 app.include_router(realtime.router)
 app.include_router(saved_searches.router)
+app.include_router(analytics.router)
 
 # Phase 5.1: mount the v1 scrapers admin override router (exposes POST /api/v1/scrapers/run)
 app.include_router(admin.scraper_admin_router)
