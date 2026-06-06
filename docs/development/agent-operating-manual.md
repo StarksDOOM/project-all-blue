@@ -15,11 +15,12 @@ Canonical index: **`.spec-kit/README.md`**. Enforcement table: **`engineering-di
 | **Backfill** | All shipped features on `develop` must have a spec (see index table). |
 | **Drift** | Code and spec change together — never merge architectural drift without spec update. |
 | **README** | `docs/features/<slug>/README.md` = problem/outcomes only; API contracts live in the spec. |
-| **Done** | Set spec `Status: SHIPPED` only after tests in the spec pass + user Manual Success. |
+| **Done** | Set spec `Status: SHIPPED` only after tests in the spec pass + explicit user confirmation/approval. |
 | **Register** | Add row to `.spec-kit/README.md` for every new spec. |
 
 **STREAM 2:** scraper-error-telemetry (3.9), ingestion-oop (4.1).  
-**STREAM 4:** transaction-legal-engine (4.0) → secure-pdf-signatures (5.0) → docusign-embedded-signing (5.1) → post-execution-audit (6.0) → realtime-sse-sync (7.0).
+**STREAM 4:** transaction-legal-engine (4.0) → secure-pdf-signatures (5.0) → docusign-embedded-signing (5.1) → post-execution-audit (6.0) → realtime-sse-sync (7.0).  
+**STREAM 6:** contract-generation-docusign (1.0) → docusign-connect-webhooks (1.1).
 
 ## Repository scope (STRICT)
 
