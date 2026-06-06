@@ -24,3 +24,8 @@ export const savedSearchKeys = {
   list: () => [...savedSearchKeys.all, "list"] as const,
   matches: (alertId: string) => [...savedSearchKeys.all, "matches", alertId] as const,
 };
+
+export const contractKeys = {
+  all: ["contracts"] as const,
+  list: () => [...contractKeys.all, "list"] as const,
+};
