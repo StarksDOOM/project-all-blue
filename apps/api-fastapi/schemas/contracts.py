@@ -34,3 +34,19 @@ class ContractResponse(BaseModel):
     document_body: str
     last_modified: int
     server_version: int
+
+
+class ContractGenerateRequest(BaseModel):
+    """
+    Client request payload to trigger DocuSign contract envelope generation.
+    """
+    property_id: str = Field(..., min_length=1, description="Unique BLU ID of the listing property")
+
+
+class ContractGenerateResponse(BaseModel):
+    """
+    API response containing the created DocuSign envelope metadata.
+    """
+    envelope_id: str = Field(..., description="The GUID tracking the dispatched DocuSign envelope")
+    status: str = Field(..., description="The status of the envelope dispatch (e.g. 'sent')")
+    contract_id: str = Field(..., description="The ID of the generated LegalContract database record")
