@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import json
 from typing import Generator
+import secrets
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -105,10 +106,11 @@ def test_lifecycle_manager_updates_completed_to_executed(
     Verify ContractLifecycleManager updates a contract status to 'executed' on completion.
     """
     # Arrange: Create a contract in 'sent' state
+    envelope_id = f"env-completed-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
-        docusign_envelope_id="env-completed-test",
+        docusign_envelope_id=envelope_id,
         docusign_status="sent",
         version_hash="vhash123",
     )
@@ -117,7 +119,7 @@ def test_lifecycle_manager_updates_completed_to_executed(
     db_session.refresh(contract)
 
     # Act: Process completed event
-    payload = {"envelopeId": "env-completed-test", "status": "completed"}
+    payload = {"envelopeId": envelope_id, "status": "completed"}
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
 
@@ -142,10 +144,11 @@ def test_lifecycle_manager_updates_declined(
     """
     Verify ContractLifecycleManager updates a contract status to 'declined' when declined.
     """
+    envelope_id = f"env-declined-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
-        docusign_envelope_id="env-declined-test",
+        docusign_envelope_id=envelope_id,
         docusign_status="sent",
         version_hash="vhash123",
     )
@@ -153,7 +156,7 @@ def test_lifecycle_manager_updates_declined(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": "env-declined-test", "status": "declined"}
+    payload = {"envelopeId": envelope_id, "status": "declined"}
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
 
@@ -177,10 +180,11 @@ def test_lifecycle_manager_triggers_notification_on_executed(
     """
     Verify ContractLifecycleManager schedules notifications on contract completion.
     """
+    envelope_id = f"env-notify-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
-        docusign_envelope_id="env-notify-test",
+        docusign_envelope_id=envelope_id,
         docusign_status="sent",
         version_hash="vhash123",
     )
@@ -188,7 +192,7 @@ def test_lifecycle_manager_triggers_notification_on_executed(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": "env-notify-test", "status": "completed"}
+    payload = {"envelopeId": envelope_id, "status": "completed"}
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
     background_tasks = BackgroundTasks()
@@ -216,10 +220,11 @@ def test_webhook_endpoint_success(
     """
     Verify POST /api/v1/contracts/webhooks/docusign validates signature and updates contract status.
     """
+    envelope_id = f"env-endpoint-success-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
-        docusign_envelope_id="env-endpoint-success",
+        docusign_envelope_id=envelope_id,
         docusign_status="sent",
         version_hash="vhash123",
     )
@@ -227,7 +232,7 @@ def test_webhook_endpoint_success(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": "env-endpoint-success", "status": "completed"}
+    payload = {"envelopeId": envelope_id, "status": "completed"}
     payload_bytes = json.dumps(payload).encode("utf-8")
     sig = _generate_hmac_signature(payload_bytes)
 
@@ -260,17 +265,18 @@ def test_webhook_endpoint_invalid_signature(
     """
     Verify POST /api/v1/contracts/webhooks/docusign blocks request if HMAC signature is invalid.
     """
+    envelope_id = f"env-endpoint-fail-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
-        docusign_envelope_id="env-endpoint-fail",
+        docusign_envelope_id=envelope_id,
         docusign_status="sent",
         version_hash="vhash123",
     )
     db_session.add(contract)
     db_session.commit()
 
-    payload = {"envelopeId": "env-endpoint-fail", "status": "completed"}
+    payload = {"envelopeId": envelope_id, "status": "completed"}
     payload_bytes = json.dumps(payload).encode("utf-8")
 
     headers = {
