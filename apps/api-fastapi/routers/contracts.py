@@ -10,7 +10,8 @@ from __future__ import annotations
 import hashlib
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+import json
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Header, BackgroundTasks
 from sqlmodel import Session, select
 
 from database import get_db_session
@@ -30,6 +31,9 @@ from services.contract_service import (
     get_contract,
     initialize_contract,
 )
+from services.docusign_webhook_validator import DocuSignWebhookValidator
+from services.contract_lifecycle_manager import ContractLifecycleManager
+from services.notification_dispatcher import NotificationDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -177,3 +181,72 @@ def generate_contract(
         status="sent",
         contract_id=contract.id,
     )
+
+
+def get_webhook_validator() -> DocuSignWebhookValidator:
+    """Dependency resolver for DocuSign Webhook HMAC validator."""
+    return DocuSignWebhookValidator()
+
+
+def get_lifecycle_manager() -> ContractLifecycleManager:
+    """Dependency resolver for standalone contract lifecycle processor."""
+    return ContractLifecycleManager()
+
+
+def get_notification_dispatcher() -> NotificationDispatcher:
+    """Dependency resolver for outbound email notifications dispatcher."""
+    return NotificationDispatcher()
+
+
+@router.post("/webhooks/docusign", status_code=status.HTTP_200_OK)
+async def docusign_webhook_callback(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    x_docusign_signature_1: str | None = Header(default=None, alias="X-DocuSign-Signature-1"),
+    session: Session = Depends(get_db_session),
+    validator: DocuSignWebhookValidator = Depends(get_webhook_validator),
+    lifecycle_manager: ContractLifecycleManager = Depends(get_lifecycle_manager),
+    dispatcher: NotificationDispatcher = Depends(get_notification_dispatcher),
+) -> dict[str, str]:
+    """
+    DocuSign Connect Webhook callback for standalone property contracts.
+
+    Purpose:
+        Ingest completed/declined signing envelope updates from DocuSign Connect.
+        Validates HMAC signature and schedules database updates and notification dispatch.
+
+    Lifecycle:
+        Invoked as a webhook callback by DocuSign Connect service when signing completes/declines.
+
+    Thread-safety:
+        Fully thread-safe.
+
+    Collaborators:
+        - DocuSignWebhookValidator (cryptographic validator)
+        - ContractLifecycleManager (business lifecycle processor)
+        - Session (database persistence)
+    """
+    raw_body = await request.body()
+
+    # 1. Cryptographically verify payload signature
+    validator.verify(raw_body, x_docusign_signature_1)
+
+    # 2. Parse payload JSON
+    try:
+        payload = json.loads(raw_body.decode("utf-8"))
+    except Exception as exc:
+        logger.error("Failed to parse DocuSign webhook raw body JSON: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Malformed JSON payload",
+        )
+
+    # 3. Process contract lifecycle updates
+    lifecycle_manager.process_webhook_event(
+        session=session,
+        background_tasks=background_tasks,
+        event_payload=payload,
+        dispatcher=dispatcher,
+    )
+
+    return {"status": "success"}
