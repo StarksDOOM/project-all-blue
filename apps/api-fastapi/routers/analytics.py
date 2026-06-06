@@ -23,9 +23,9 @@ Collaborators:
 from fastapi import APIRouter, Depends
 from sqlmodel import Session
 
-from database import get_session
+from database import get_db_session
 from schemas.contracts import WholesaleDealMetrics
-from services.auth import RoleChecker, UserCredentials, UserRole, get_current_user
+from services.auth import RoleChecker, UserCredentials, UserRole
 from services.wholesale_pricing_engine import WholesalePricingEngine
 
 router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
@@ -52,7 +52,7 @@ _engine = WholesalePricingEngine()
 )
 async def get_wholesale_analytics(
     property_id: str,
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     _current_user: UserCredentials = Depends(_analytics_checker),
 ) -> WholesaleDealMetrics:
     """
