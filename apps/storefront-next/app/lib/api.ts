@@ -14,6 +14,7 @@ import {
   ScraperErrorListResponse,
   TransactionCreatePayload,
   TransactionRecord,
+  ContractGenerateResponse,
 } from "./types";
 
 /**
@@ -630,6 +631,32 @@ export const api = {
       const message = await parseErrorMessage(
         response,
         `Failed to fetch contract: ${response.statusText}`
+      );
+      throw new Error(message);
+    }
+
+    return response.json();
+  },
+
+  generateContract: async (
+    propertyId: string | number
+  ): Promise<ContractGenerateResponse> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(
+      `${resolveApiBaseUrl()}/api/v1/contracts/generate`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ property_id: propertyId }),
+      }
+    );
+
+    if (!response.ok) {
+      const message = await parseErrorMessage(
+        response,
+        `Contract generation failed: ${response.statusText}`
       );
       throw new Error(message);
     }

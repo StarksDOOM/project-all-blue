@@ -251,3 +251,9 @@ export interface AlertMatchesResponse {
   alert_id: string;
   matches: SavedSearchMatchWithDelivery[];
 }
+
+export interface ContractGenerateResponse {
+  envelope_id: string;
+  status: string;
+  contract_id: string;
+}

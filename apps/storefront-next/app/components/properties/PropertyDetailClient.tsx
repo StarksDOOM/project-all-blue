@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Bath,
   BedDouble,
@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { getPropertyDetail } from "@/lib/api";
+import { getPropertyDetail, api } from "@/lib/api";
 import { propertyKeys } from "@/lib/query-keys";
 import {
   formatPrimaryPrice,
@@ -137,6 +137,60 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
   const portalRefreshFailed = detailResult?.portalRefreshFailed ?? false;
   const portalRefreshMessage = detailResult?.portalRefreshMessage;
   const secondaryPrice = property ? formatSecondaryPrice(property) : null;
+
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [alertInfo, setAlertInfo] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
+
+  useEffect(() => {
+    const token = window.localStorage.getItem("supabase-access-token");
+    if (token) {
+      try {
+        const base64Url = token.split(".")[1];
+        const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const payload = JSON.parse(jsonPayload);
+        const role = payload?.app_metadata?.role || payload?.user_metadata?.role || "client";
+        setUserRole(role);
+      } catch {
+        setUserRole(null);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (alertInfo) {
+      const timer = setTimeout(() => {
+        setAlertInfo(null);
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [alertInfo]);
+
+  const { mutate: generateDirectContract, isPending: isGenerating } = useMutation({
+    mutationFn: () => {
+      if (!property) throw new Error("Inmueble no cargado.");
+      return api.generateContract(property.blu_id || property.remote_id);
+    },
+    onSuccess: (data) => {
+      setAlertInfo({
+        type: "success",
+        title: "Contrato DocuSign Generado",
+        message: `El contrato ha sido enviado para firmas. Envelope ID: ${data.envelope_id}`,
+      });
+    },
+    onError: (err: any) => {
+      setAlertInfo({
+        type: "error",
+        title: "Error de Generación",
+        message: err.message || "Ocurrió un error al generar el contrato.",
+      });
+    },
+  });
 
   return (
     <main className="min-h-screen bg-muted/40 pb-32">
@@ -347,6 +401,17 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
               <p className="truncate text-sm font-medium text-slate-900">{property.title}</p>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              {(userRole === "agent" || userRole === "admin" || !userRole) && (
+                <Button
+                  size="lg"
+                  variant="default"
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all duration-200"
+                  onClick={() => generateDirectContract()}
+                  disabled={isGenerating}
+                >
+                  {isGenerating ? "Enviando a DocuSign..." : "DocuSign Directo"}
+                </Button>
+              )}
               <Button size="lg" className="w-full sm:w-auto" onClick={() => setIsTransactionModalOpen(true)}>
                 Generar Contrato
               </Button>
@@ -372,6 +437,33 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
           open={isTransactionModalOpen}
           onOpenChange={setIsTransactionModalOpen}
         />
+      ) : null}
+
+      {alertInfo ? (
+        <div className="fixed right-4 top-4 z-50 max-w-md animate-in slide-in-from-top-5 duration-300">
+          <div
+            className={cn(
+              "rounded-xl border p-4 shadow-xl backdrop-blur-md transition-all duration-300",
+              alertInfo.type === "success"
+                ? "border-emerald-500/30 bg-emerald-950/90 text-emerald-50"
+                : "border-red-500/30 bg-red-950/90 text-red-50"
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <p className="font-semibold tracking-wide text-sm">{alertInfo.title}</p>
+                <p className="text-xs opacity-90 leading-relaxed font-mono break-all">{alertInfo.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAlertInfo(null)}
+                className="rounded-lg p-1 hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </main>
   );
