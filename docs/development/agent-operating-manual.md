@@ -36,6 +36,12 @@ No `git add` / `git commit` until applicable tests pass with **zero failures**.
 
 User approval (**Go**, **Stage this**) required before staging.
 
+## Integration Tests (ZERO-MOCKS)
+
+- Mocks are **strictly forbidden** in integration tests.
+- Only unit tests may use structural mocks/patches (e.g., for isolating external third-party SDKs like DocuSign, Supabase, or Resend).
+- Integration tests must execute against real local/test database engines and services without mocking or patching.
+
 ## Regression-Free Fixes (ZERO-TOLERANCE)
 
 When the user instructs you to **fix** something (a bug report, "the gallery is broken for X", "remove the test data", "make Y work"), that directive is **narrowly scoped**. Implementing the fix **must not**:
