@@ -28,13 +28,13 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getPropertyDetail, api } from "@/lib/api";
-import { propertyKeys } from "@/lib/query-keys";
+import { propertyKeys, analyticsKeys } from "@/lib/query-keys";
 import {
   formatPrimaryPrice,
   formatSecondaryPrice,
   hasPortalListPrice,
 } from "@/lib/pricing";
-import { PropertyListing } from "@/lib/types";
+import { PropertyListing, WholesaleDealMetrics } from "@/lib/types";
 
 const ContractDrawer = dynamic(
   () => import("@/components/properties/ContractDrawer"),
@@ -140,6 +140,17 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
 
   const [userRole, setUserRole] = useState<string | null>(null);
   const [alertInfo, setAlertInfo] = useState<{ type: "success" | "error"; title: string; message: string } | null>(null);
+
+  const isAgentOrAdmin = userRole === "agent" || userRole === "admin";
+  const propertyBluId = property?.blu_id || property?.remote_id || "";
+
+  const { data: wholesaleData, isLoading: isWholesaleLoading } = useQuery<WholesaleDealMetrics>({
+    queryKey: analyticsKeys.wholesale(propertyBluId),
+    queryFn: () => api.getWholesaleAnalytics(propertyBluId),
+    enabled: isAgentOrAdmin && propertyBluId.length > 0,
+    staleTime: 300_000,
+    retry: false,
+  });
 
   useEffect(() => {
     const token = window.localStorage.getItem("supabase-access-token");
@@ -379,6 +390,73 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
               </Card>
 
               <PortalOriginalLink storedUrl={property.url} remoteId={property.remote_id} />
+
+              {isAgentOrAdmin ? (
+                <Card className="border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-lg">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
+                      <span className="text-amber-400">📊</span>
+                      {userRole === "admin" ? "Guía de Wholesaling — Desglose Completo" : "Guía de Wholesaling"}
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 text-xs">
+                      Métricas calculadas automáticamente · sector {property.sector ?? "—"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isWholesaleLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-5 w-2/3 bg-slate-700" />
+                        <Skeleton className="h-5 w-1/2 bg-slate-700" />
+                      </div>
+                    ) : wholesaleData ? (
+                      <div className="space-y-3">
+                        {userRole === "admin" && (
+                          <>
+                            <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
+                              <span className="text-slate-400">Mediana sector (USD/m²)</span>
+                              <span className="font-mono font-semibold text-slate-200">
+                                ${wholesaleData.sector_median_price_per_sqm.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
+                              <span className="text-slate-400">ARV Estimado</span>
+                              <span className="font-mono font-semibold text-slate-200">
+                                ${wholesaleData.auto_arv.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
+                              <span className="text-slate-400">Reparaciones Est.</span>
+                              <span className="font-mono font-semibold text-red-400">
+                                −${wholesaleData.estimated_repairs.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
+                              <span className="text-slate-400">Margen de Asignación</span>
+                              <span className="font-mono font-semibold text-amber-400">
+                                ${wholesaleData.assignment_fee.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex items-center justify-between rounded-lg bg-slate-700/60 px-3 py-2">
+                          <span className="text-sm font-medium text-slate-300">Oferta Máxima al Vendedor</span>
+                          <span className="font-mono text-lg font-bold text-emerald-400">
+                            ${wholesaleData.mao.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg bg-blue-600/30 px-3 py-2 ring-1 ring-blue-500/40">
+                          <span className="text-sm font-semibold text-blue-200">Precio para Inversionista</span>
+                          <span className="font-mono text-lg font-bold text-white">
+                            ${wholesaleData.pitch_price.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">No se pudo calcular. Verifique que la propiedad esté activa.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
             </div>
 
             {isDrawerOpen && selectedProperty ? (

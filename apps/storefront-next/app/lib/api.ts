@@ -16,6 +16,7 @@ import {
   TransactionRecord,
   ContractGenerateResponse,
   DashboardContract,
+  WholesaleDealMetrics,
 } from "./types";
 
 /**
@@ -676,6 +677,22 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error(`Failed to load contracts: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  getWholesaleAnalytics: async (
+    propertyId: string
+  ): Promise<WholesaleDealMetrics> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(
+      `${resolveApiBaseUrl()}/api/v1/analytics/wholesale/${propertyId}`,
+      { method: "GET", headers, cache: "no-store" }
+    );
+    if (!response.ok) {
+      throw new Error(`Wholesale analytics failed: ${response.statusText}`);
     }
     return response.json();
   },

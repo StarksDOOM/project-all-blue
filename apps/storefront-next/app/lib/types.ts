@@ -268,4 +268,17 @@ export interface DashboardContract {
   created_at: string;
   status: string | null;
   property: DashboardContractProperty | null;
-}
+}
+
+/** Wholesale deal metrics returned by GET /api/v1/analytics/wholesale/{property_id}. */
+export interface WholesaleDealMetrics {
+  property_id: string;
+  sector: string;
+  sector_median_price_per_sqm: number;
+  auto_arv: number;
+  estimated_repairs: number;
+  mao: number;
+  assignment_fee: number;
+  pitch_price: number;
+}
+
