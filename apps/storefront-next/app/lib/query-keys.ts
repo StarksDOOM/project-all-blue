@@ -29,3 +29,8 @@ export const contractKeys = {
   all: ["contracts"] as const,
   list: () => [...contractKeys.all, "list"] as const,
 };
+
+export const analyticsKeys = {
+  wholesale: (propertyId: string) =>
+    ["analytics", "wholesale", propertyId] as const,
+};

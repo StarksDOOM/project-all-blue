@@ -2,9 +2,16 @@
 Live QA contract: mirrors manual curl flow against reference property 222598.
 
 Skips when the listing is absent from the connected Postgres inventory.
+
+NOTE: Marked ``live_qa`` — requires RE/MAX portal reachability.
+Run manually with: pytest -m live_qa
+Excluded from standard regression gate (-m "not live_qa").
+Stabilize when network-isolation strategy is defined.
 """
 
 from __future__ import annotations
+
+import pytest
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -24,6 +31,7 @@ QA_PAYLOAD = {
 }
 
 
+@pytest.mark.live_qa
 def test_manual_qa_transaction_flow_property_222598(api_client: TestClient) -> None:
     property_resp = api_client.get(f"/api/v1/properties/{QA_REMOTE_ID}")
     assert property_resp.status_code == 200, (

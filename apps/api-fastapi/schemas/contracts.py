@@ -68,3 +68,49 @@ class DashboardContractResponse(BaseModel):
     created_at: datetime = Field(..., description="Creation date and time of the contract")
     status: Optional[str] = Field(None, description="The signature status from DocuSign (e.g. 'sent', 'executed')")
     property: Optional[DashboardContractProperty] = Field(None, description="Associated property details")
+
+
+class WholesaleDealMetrics(BaseModel):
+    """
+    Response schema for the wholesale deal analytics endpoint.
+
+    Purpose:
+        Carries all computed wholesale metrics for a single property back to the
+        caller of ``GET /api/v1/analytics/wholesale/{property_id}``.  The payload
+        is intentionally complete — role-based field filtering is performed on the
+        frontend, not here, so that both AGENT and ADMIN receive the same wire
+        format and the backend remains role-agnostic at the schema layer.
+
+    Collaborators:
+        - ``WholesalePricingEngine`` — sole producer of instances of this schema.
+        - ``routers.analytics`` — serialises this model as the 200 JSON response.
+
+    Invariants:
+        - All monetary values are expressed in USD.
+        - ``sector_median_price_per_sqm`` is derived exclusively from
+          ``PropertyListing.price_usd`` (always populated) divided by
+          ``PropertyListing.square_meters``.
+        - ``assignment_fee`` is always >= 5 000.0 (floor enforced by the engine).
+        - ``pitch_price == mao + assignment_fee`` (arithmetic identity).
+    """
+
+    property_id: str = Field(..., description="BLU ID of the analysed property")
+    sector: str = Field(..., description="Neighbourhood / sector of the property")
+    sector_median_price_per_sqm: float = Field(
+        ..., description="Median price_usd / square_meters across active sector listings (USD/m²)"
+    )
+    auto_arv: float = Field(
+        ..., description="After-repair value estimate: sector_median_price_per_sqm × target.square_meters (USD)"
+    )
+    estimated_repairs: float = Field(
+        ..., description="Repair estimate heuristic: target.square_meters × 150 (USD)"
+    )
+    mao: float = Field(
+        ..., description="Maximum Allowable Offer: (auto_arv × 0.70) − estimated_repairs (USD)"
+    )
+    assignment_fee: float = Field(
+        ..., description="Wholesale assignment fee: max(auto_arv × 0.05, 5 000) (USD)"
+    )
+    pitch_price: float = Field(
+        ..., description="Investor pitch price: mao + assignment_fee (USD)"
+    )
