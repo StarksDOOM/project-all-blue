@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from models import PropertyListing
+from services.str_default_predictor import StrDefaultPredictor
 from services.wholesale_pricing_engine import WholesalePricingEngine
 
 
@@ -265,3 +266,65 @@ class TestWholesaleEndpointWithSTR:
         )
 
         assert response.status_code == 422
+
+    def test_recommended_str_assumptions_populated(
+        self,
+        api_client: TestClient,
+        seeded_property: PropertyListing,
+    ) -> None:
+        """Endpoint always returns recommended STR assumptions based on location/size."""
+        pid = quote(seeded_property.id, safe="")
+        response = api_client.get(
+            f"/api/v1/analytics/wholesale/{pid}"
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "recommended_str_assumptions" in data
+        rec = data["recommended_str_assumptions"]
+        assert "nightly_rate" in rec
+        assert "occupancy_pct" in rec
+        assert "monthly_maintenance" in rec
+        # For seeded_property (Piantini, Santo Domingo, square_meters=142.0)
+        assert rec["nightly_rate"] == 80.0
+        assert rec["occupancy_pct"] == 0.40
+        assert rec["monthly_maintenance"] == 142.0 * 2.50 # 355.0
+
+
+class TestStrDefaultPredictor:
+    """Verify that StrDefaultPredictor resolves correct DR market assumptions."""
+
+    def test_predictor_punta_cana(self) -> None:
+        """Punta Cana / Altagracia keywords yield $169 ADR and 45% occupancy."""
+        res = StrDefaultPredictor.predict_defaults(100.0, "La Altagracia", "Punta Cana")
+        assert res["nightly_rate"] == 169.0
+        assert res["occupancy_pct"] == 0.45
+        assert res["monthly_maintenance"] == 250.0  # 100 * 2.50
+
+    def test_predictor_las_terrenas(self) -> None:
+        """Las Terrenas / Samana keywords yield $234 ADR and 40% occupancy."""
+        res = StrDefaultPredictor.predict_defaults(80.0, "Samaná", "Las Terrenas")
+        assert res["nightly_rate"] == 234.0
+        assert res["occupancy_pct"] == 0.40
+        assert res["monthly_maintenance"] == 200.0  # 80 * 2.50
+
+    def test_predictor_santo_domingo(self) -> None:
+        """Santo Domingo yields $80 ADR and 40% occupancy."""
+        res = StrDefaultPredictor.predict_defaults(120.0, "Santo Domingo", "Piantini")
+        assert res["nightly_rate"] == 80.0
+        assert res["occupancy_pct"] == 0.40
+        assert res["monthly_maintenance"] == 300.0  # 120 * 2.50
+
+    def test_predictor_fallback(self) -> None:
+        """Other locations yield fallback $120 ADR and 40% occupancy."""
+        res = StrDefaultPredictor.predict_defaults(None, "Santiago", "Cerros de Gurabo")
+        assert res["nightly_rate"] == 120.0
+        assert res["occupancy_pct"] == 0.40
+        assert res["monthly_maintenance"] == 150.0  # fallback when size is None
+
+    def test_predictor_zero_or_negative_size(self) -> None:
+        """Zero or negative size yields fallback maintenance of $150."""
+        res = StrDefaultPredictor.predict_defaults(0.0, "Punta Cana")
+        assert res["monthly_maintenance"] == 150.0
+
+        res2 = StrDefaultPredictor.predict_defaults(-5.0, "Punta Cana")
+        assert res2["monthly_maintenance"] == 150.0
