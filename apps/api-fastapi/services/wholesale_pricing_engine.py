@@ -3,10 +3,11 @@ Wholesale Pricing Engine — stateless domain service for deal metric computatio
 
 Module Purpose:
     Provides ``WholesalePricingEngine``, a single-responsibility class that derives
-    wholesale real estate metrics (ARV, MAO, assignment fee, pitch price) for any
-    active ``PropertyListing`` using live sector data from the database and a fixed
-    set of heuristic multipliers defined in the spec
-    (``.spec-kit/specs/api/wholesale-analytics-engine.spec.md``).
+    wholesale real estate metrics (ARV, MAO, assignment fee, pitch price) and optional
+    Short-Term Rental (STR) yield projections for any active ``PropertyListing`` using
+    live sector data from the database and a fixed set of heuristic multipliers defined
+    in the spec (``.spec-kit/specs/api/wholesale-analytics-engine.spec.md`` and
+    ``.spec-kit/specs/api/airbnb-roi-engine.spec.md``).
 
     This module is read-only with respect to the database: no writes, no side effects.
 
@@ -30,6 +31,10 @@ Constants (spec-locked — changes require spec update + user approval):
         Percentage of ARV retained as the wholesale assignment fee.
     ASSIGNMENT_FEE_FLOOR : float = 5_000.0
         Minimum assignment fee in USD regardless of ARV percentage result.
+    PM_FEE_RATIO : float = 0.20
+        Property management fee as a fraction of monthly STR gross income.
+    MAINTENANCE_RESERVE : float = 150.0
+        Flat monthly maintenance reserve in USD for STR projections.
 """
 
 import statistics
@@ -46,6 +51,8 @@ from schemas.contracts import WholesaleDealMetrics
 _DISCOUNT_RATIO: float = 0.80
 _ASSIGNMENT_FEE_RATIO: float = 0.05
 _ASSIGNMENT_FEE_FLOOR: float = 5_000.0
+_PM_FEE_RATIO: float = 0.20
+_MAINTENANCE_RESERVE: float = 150.0
 
 
 class WholesalePricingEngine:
@@ -53,9 +60,10 @@ class WholesalePricingEngine:
     Stateless domain service that computes wholesale deal metrics for a property.
 
     Purpose:
-        Encapsulates the complete wholesale analysis algorithm defined in
-        STREAM 6 PHASE 1.3.  Given a ``property_id`` and an open database
-        ``Session``, it queries the ``PropertyListing`` table to derive a
+        Encapsulates the wholesale analysis algorithm (STREAM 6 PHASE 1.3) and
+        the optional STR yield calculator (STREAM 6 PHASE 1.6).  Given a
+        ``property_id`` and an open database ``Session``, it queries the
+        ``PropertyListing`` table to derive a
         sector-level median price-per-square-metre, then applies fixed heuristic
         multipliers to produce an ARV, MAO, assignment fee, and pitch price.
 
@@ -89,6 +97,10 @@ class WholesalePricingEngine:
         self,
         property_id: str,
         session: Session,
+        *,
+        nightly_rate: float | None = None,
+        occupancy_pct: float | None = None,
+        monthly_hoa: float | None = None,
     ) -> WholesaleDealMetrics:
         """
         Compute wholesale deal metrics for the given property.
@@ -100,6 +112,10 @@ class WholesalePricingEngine:
             3. Compute the sector median price-per-square-metre.
             4. Derive ARV, repairs, MAO, assignment fee, and pitch price.
 
+            When ``nightly_rate`` is supplied, also computes STR yield metrics
+            (STREAM 6 PHASE 1.6): monthly gross/net, annual NOI, Cash-on-Cash
+            return percentage, and 6-month/1-year/3-year net profit projections.
+
         Parameters:
             property_id : str
                 The BLU database ID of the target ``PropertyListing``.
@@ -107,6 +123,14 @@ class WholesalePricingEngine:
                 An open SQLModel ``Session`` bound to the request lifecycle.
                 The engine performs read-only queries; the session is not
                 committed or closed by this method.
+            nightly_rate : float | None
+                Average nightly STR rate in USD.  When ``None``, STR metrics
+                are omitted from the response.
+            occupancy_pct : float | None
+                Occupancy ratio (0.0–1.0).  Defaults to ``0.70`` if ``nightly_rate``
+                is provided but ``occupancy_pct`` is ``None``.
+            monthly_hoa : float | None
+                Monthly HOA / maintenance dues in USD.  Defaults to ``0.0``.
 
         Returns:
             WholesaleDealMetrics
@@ -127,7 +151,24 @@ class WholesalePricingEngine:
         median_price_per_sqm = self._compute_median_price_per_sqm(
             sector_listings, target.sector
         )
-        return self._build_metrics(target, median_price_per_sqm)
+
+        # Compute optional STR yield metrics when nightly_rate is provided
+        str_kwargs: dict[str, float | None] = {}
+        if nightly_rate is not None:
+            # Compute pitch_price first to feed into Cash-on-Cash
+            auto_emv = median_price_per_sqm * target.square_meters
+            mao = auto_emv * _DISCOUNT_RATIO
+            assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
+            pitch_price = mao + assignment_fee
+
+            str_kwargs = self.calculate_str_metrics(
+                nightly_rate=nightly_rate,
+                occupancy_pct=occupancy_pct if occupancy_pct is not None else 0.70,
+                monthly_hoa=monthly_hoa if monthly_hoa is not None else 0.0,
+                pitch_price=pitch_price,
+            )
+
+        return self._build_metrics(target, median_price_per_sqm, str_kwargs=str_kwargs)
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -260,10 +301,64 @@ class WholesalePricingEngine:
             ratios.append(listing.price_usd / listing.square_meters)
         return statistics.median(ratios)
 
+    def calculate_str_metrics(
+        self,
+        nightly_rate: float,
+        occupancy_pct: float,
+        monthly_hoa: float,
+        pitch_price: float,
+    ) -> dict[str, float | None]:
+        """
+        Compute Short-Term Rental (STR) yield metrics from user-supplied assumptions.
+
+        Purpose:
+            Pure computational method (no database access) that derives monthly
+            income, NOI, Cash-on-Cash return, and time-horizon profit projections
+            from STR operating assumptions.  Defined in STREAM 6 PHASE 1.6 spec.
+
+        Parameters:
+            nightly_rate : float
+                Average nightly rental rate in USD.
+            occupancy_pct : float
+                Expected occupancy ratio (0.0–1.0).
+            monthly_hoa : float
+                Monthly HOA or maintenance dues in USD.
+            pitch_price : float
+                Total investor entry cost (MAO + assignment fee) used as
+                the denominator for Cash-on-Cash return.
+
+        Returns:
+            dict[str, float | None]
+                Dictionary keyed by STR metric field names, suitable for
+                unpacking into ``WholesaleDealMetrics`` constructor kwargs.
+
+        Side Effects:
+            None.  Stateless pure computation.
+        """
+        monthly_gross = nightly_rate * 30 * occupancy_pct
+        pm_cost = monthly_gross * _PM_FEE_RATIO
+        monthly_net = monthly_gross - pm_cost - monthly_hoa - _MAINTENANCE_RESERVE
+        annual_noi = monthly_net * 12
+
+        cash_on_cash_pct = (annual_noi / pitch_price) * 100 if pitch_price > 0 else 0.0
+
+        return {
+            "str_monthly_gross": round(monthly_gross, 2),
+            "str_pm_cost": round(pm_cost, 2),
+            "str_monthly_net": round(monthly_net, 2),
+            "str_annual_noi": round(annual_noi, 2),
+            "str_cash_on_cash_pct": round(cash_on_cash_pct, 2),
+            "str_projection_6mo": round(monthly_net * 6, 2),
+            "str_projection_1yr": round(monthly_net * 12, 2),
+            "str_projection_3yr": round(monthly_net * 36, 2),
+        }
+
     def _build_metrics(
         self,
         target: PropertyListing,
         median_price_per_sqm: float,
+        *,
+        str_kwargs: dict[str, float | None] | None = None,
     ) -> WholesaleDealMetrics:
         """
         Apply spec-locked heuristics to produce the final deal metrics payload.
@@ -272,6 +367,8 @@ class WholesalePricingEngine:
             Translates the sector median and target property attributes into
             the turnkey ``WholesaleDealMetrics`` output according to the formulas
             defined in ``.spec-kit/specs/api/wholesale-analytics-engine.spec.md``.
+            When ``str_kwargs`` is provided, merges STR yield fields into the
+            response (STREAM 6 PHASE 1.6).
 
         Parameters:
             target : PropertyListing
@@ -280,6 +377,8 @@ class WholesalePricingEngine:
             median_price_per_sqm : float
                 Sector median price in USD per square metre (output of
                 ``_compute_median_price_per_sqm``).
+            str_kwargs : dict[str, float | None] | None
+                Optional STR metric fields to include in the response.
 
         Returns:
             WholesaleDealMetrics
@@ -301,4 +400,5 @@ class WholesalePricingEngine:
             mao=round(mao, 2),
             assignment_fee=round(assignment_fee, 2),
             pitch_price=round(pitch_price, 2),
+            **(str_kwargs or {}),
         )

@@ -110,4 +110,32 @@ class WholesaleDealMetrics(BaseModel):
     )
     pitch_price: float = Field(
         ..., description="Investor pitch price: mao + assignment_fee (USD)"
+    )
+
+    # ------------------------------------------------------------------
+    # STR yield metrics (populated only when nightly_rate is supplied)
+    # ------------------------------------------------------------------
+    str_monthly_gross: float | None = Field(
+        None, description="Monthly gross STR income: nightly_rate × 30 × occupancy_pct (USD)"
+    )
+    str_pm_cost: float | None = Field(
+        None, description="Property management cost: str_monthly_gross × 0.20 (USD)"
+    )
+    str_monthly_net: float | None = Field(
+        None, description="Monthly net income: gross − PM − HOA − maintenance reserve (USD)"
+    )
+    str_annual_noi: float | None = Field(
+        None, description="Annual Net Operating Income: str_monthly_net × 12 (USD)"
+    )
+    str_cash_on_cash_pct: float | None = Field(
+        None, description="Cash-on-Cash return: (str_annual_noi / pitch_price) × 100 (%)"
+    )
+    str_projection_6mo: float | None = Field(
+        None, description="6-month net profit projection: str_monthly_net × 6 (USD)"
+    )
+    str_projection_1yr: float | None = Field(
+        None, description="1-year net profit projection: str_monthly_net × 12 (USD)"
+    )
+    str_projection_3yr: float | None = Field(
+        None, description="3-year net profit projection: str_monthly_net × 36 (USD)"
     )
