@@ -99,17 +99,14 @@ class WholesaleDealMetrics(BaseModel):
     sector_median_price_per_sqm: float = Field(
         ..., description="Median price_usd / square_meters across active sector listings (USD/m²)"
     )
-    auto_arv: float = Field(
-        ..., description="After-repair value estimate: sector_median_price_per_sqm × target.square_meters (USD)"
-    )
-    estimated_repairs: float = Field(
-        ..., description="Repair estimate heuristic: target.square_meters × 150 (USD)"
+    auto_emv: float = Field(
+        ..., description="Estimated Market Value: sector_median_price_per_sqm × target.square_meters (USD)"
     )
     mao: float = Field(
-        ..., description="Maximum Allowable Offer: (auto_arv × 0.70) − estimated_repairs (USD)"
+        ..., description="Maximum Allowable Offer: auto_emv × 0.80 (USD)"
     )
     assignment_fee: float = Field(
-        ..., description="Wholesale assignment fee: max(auto_arv × 0.05, 5 000) (USD)"
+        ..., description="Wholesale assignment fee: max(auto_emv × 0.05, 5 000) (USD)"
     )
     pitch_price: float = Field(
         ..., description="Investor pitch price: mao + assignment_fee (USD)"

@@ -50,8 +50,7 @@ from services.wholesale_pricing_engine import WholesalePricingEngine
 # ---------------------------------------------------------------------------
 TEST_JWT_SECRET = "test-secret-for-rbac-phase5-only-do-not-use-in-prod"
 
-_REPAIR_COST_PER_SQM = 150.0
-_ARV_ACQUISITION_RATIO = 0.70
+_DISCOUNT_RATIO = 0.80
 _ASSIGNMENT_FEE_RATIO = 0.05
 _ASSIGNMENT_FEE_FLOOR = 5_000.0
 
@@ -61,8 +60,7 @@ EXPECTED_RESPONSE_KEYS = frozenset(
         "property_id",
         "sector",
         "sector_median_price_per_sqm",
-        "auto_arv",
-        "estimated_repairs",
+        "auto_emv",
         "mao",
         "assignment_fee",
         "pitch_price",
@@ -189,14 +187,14 @@ class TestWholesalePricingEngineArithmetic:
         - ``WholesalePricingEngine`` — engine under test.
     """
 
-    def test_arv_calculation(self, db_session: Session) -> None:
+    def test_emv_calculation(self, db_session: Session) -> None:
         """
-        ARV equals sector median price-per-sqm multiplied by target square_meters.
+        EMV equals sector median price-per-sqm multiplied by target square_meters.
 
         Scenario: Two peers in the same sector with known ratios.
         The engine must compute the correct median and apply it to the target.
         """
-        sector = f"arv-sector-{secrets.token_hex(3)}"
+        sector = f"emv-sector-{secrets.token_hex(3)}"
         # Peer A: 200 USD/m²
         _make_listing(db_session=db_session, sector=sector, price_usd=20_000.0, square_meters=100.0)
         # Target: 150 m² — also an active listing, contributes to median.
@@ -210,14 +208,12 @@ class TestWholesalePricingEngineArithmetic:
 
         # All three ratios: 200, 300, 250 → median = 250.0
         assert result.sector_median_price_per_sqm == pytest.approx(250.0, rel=1e-3)
-        expected_arv = 250.0 * 150.0  # 37_500.0
-        assert result.auto_arv == pytest.approx(expected_arv, rel=1e-3)
+        expected_emv = 250.0 * 150.0  # 37_500.0
+        assert result.auto_emv == pytest.approx(expected_emv, rel=1e-3)
 
     def test_mao_formula(self, db_session: Session) -> None:
         """
-        MAO equals (ARV * 0.70) minus estimated_repairs.
-
-        Invariant: mao == (auto_arv * _ARV_ACQUISITION_RATIO) - estimated_repairs
+        MAO equals EMV * 0.80 (target 20% discount).
         """
         sector = f"mao-sector-{secrets.token_hex(3)}"
         target = _make_listing(db_session=db_session, sector=sector, price_usd=100_000.0, square_meters=200.0)
@@ -225,16 +221,14 @@ class TestWholesalePricingEngineArithmetic:
         engine = WholesalePricingEngine()
         result = engine.calculate_deal_metrics(property_id=target.id, session=db_session)
 
-        expected_repairs = 200.0 * _REPAIR_COST_PER_SQM  # 30_000
-        expected_mao = (result.auto_arv * _ARV_ACQUISITION_RATIO) - expected_repairs
+        expected_mao = result.auto_emv * _DISCOUNT_RATIO
         assert result.mao == pytest.approx(expected_mao, rel=1e-3)
-        assert result.estimated_repairs == pytest.approx(expected_repairs, rel=1e-3)
 
     def test_assignment_fee_percentage(self, db_session: Session) -> None:
         """
-        When 5% of ARV exceeds $5 000, the assignment fee equals ARV * 0.05.
+        When 5% of EMV exceeds $5 000, the assignment fee equals EMV * 0.05.
 
-        Scenario: Target priced at $200 000 → ARV ≈ $200 000 → 5% = $10 000 > floor.
+        Scenario: Target priced at $200 000 → EMV ≈ $200 000 → 5% = $10 000 > floor.
         """
         sector = f"fee-pct-sector-{secrets.token_hex(3)}"
         target = _make_listing(db_session=db_session, sector=sector, price_usd=200_000.0, square_meters=200.0)
@@ -242,13 +236,13 @@ class TestWholesalePricingEngineArithmetic:
         engine = WholesalePricingEngine()
         result = engine.calculate_deal_metrics(property_id=target.id, session=db_session)
 
-        expected_fee = result.auto_arv * _ASSIGNMENT_FEE_RATIO
+        expected_fee = result.auto_emv * _ASSIGNMENT_FEE_RATIO
         assert expected_fee > _ASSIGNMENT_FEE_FLOOR, "Precondition: fee must exceed floor for this test"
         assert result.assignment_fee == pytest.approx(expected_fee, rel=1e-3)
 
     def test_assignment_fee_floor(self, db_session: Session) -> None:
         """
-        When 5% of ARV is below $5 000, the assignment fee is floored at $5 000.
+        When 5% of EMV is below $5 000, the assignment fee is floored at $5 000.
 
         Scenario: Small property priced at $50 000 → 5% = $2 500 < $5 000 → fee = $5 000.
         """
@@ -258,7 +252,7 @@ class TestWholesalePricingEngineArithmetic:
         engine = WholesalePricingEngine()
         result = engine.calculate_deal_metrics(property_id=target.id, session=db_session)
 
-        pct_fee = result.auto_arv * _ASSIGNMENT_FEE_RATIO
+        pct_fee = result.auto_emv * _ASSIGNMENT_FEE_RATIO
         assert pct_fee < _ASSIGNMENT_FEE_FLOOR, "Precondition: percentage fee must be below floor"
         assert result.assignment_fee == pytest.approx(_ASSIGNMENT_FEE_FLOOR, rel=1e-3)
 
@@ -288,7 +282,7 @@ class TestWholesalePricingEngineArithmetic:
 
         # Single peer median = 120_000 / 120 = 1_000.0
         assert result.sector_median_price_per_sqm == pytest.approx(1_000.0, rel=1e-3)
-        assert result.auto_arv == pytest.approx(120_000.0, rel=1e-3)
+        assert result.auto_emv == pytest.approx(120_000.0, rel=1e-3)
 
 
 # ===========================================================================

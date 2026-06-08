@@ -43,8 +43,7 @@ from schemas.contracts import WholesaleDealMetrics
 # ---------------------------------------------------------------------------
 # Spec-locked formula constants
 # ---------------------------------------------------------------------------
-_REPAIR_COST_PER_SQM: float = 150.0
-_ARV_ACQUISITION_RATIO: float = 0.70
+_DISCOUNT_RATIO: float = 0.80
 _ASSIGNMENT_FEE_RATIO: float = 0.05
 _ASSIGNMENT_FEE_FLOOR: float = 5_000.0
 
@@ -271,7 +270,7 @@ class WholesalePricingEngine:
 
         Purpose:
             Translates the sector median and target property attributes into
-            the full ``WholesaleDealMetrics`` output according to the formulas
+            the turnkey ``WholesaleDealMetrics`` output according to the formulas
             defined in ``.spec-kit/specs/api/wholesale-analytics-engine.spec.md``.
 
         Parameters:
@@ -289,18 +288,16 @@ class WholesalePricingEngine:
         Side Effects:
             None.
         """
-        auto_arv = median_price_per_sqm * target.square_meters
-        estimated_repairs = target.square_meters * _REPAIR_COST_PER_SQM
-        mao = (auto_arv * _ARV_ACQUISITION_RATIO) - estimated_repairs
-        assignment_fee = max(auto_arv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
+        auto_emv = median_price_per_sqm * target.square_meters
+        mao = auto_emv * _DISCOUNT_RATIO
+        assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
         pitch_price = mao + assignment_fee
 
         return WholesaleDealMetrics(
             property_id=str(target.id),
             sector=target.sector,
             sector_median_price_per_sqm=round(median_price_per_sqm, 2),
-            auto_arv=round(auto_arv, 2),
-            estimated_repairs=round(estimated_repairs, 2),
+            auto_emv=round(auto_emv, 2),
             mao=round(mao, 2),
             assignment_fee=round(assignment_fee, 2),
             pitch_price=round(pitch_price, 2),
