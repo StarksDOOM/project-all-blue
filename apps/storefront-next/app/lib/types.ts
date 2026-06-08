@@ -279,5 +279,22 @@ export interface WholesaleDealMetrics {
   mao: number;
   assignment_fee: number;
   pitch_price: number;
+  /** STR yield metrics (populated only when nightly_rate query param is supplied). */
+  str_monthly_gross: number | null;
+  str_pm_cost: number | null;
+  str_monthly_net: number | null;
+  str_annual_noi: number | null;
+  str_cash_on_cash_pct: number | null;
+  str_projection_6mo: number | null;
+  str_projection_1yr: number | null;
+  str_projection_3yr: number | null;
 }
+
+/** STR assumption parameters for the Cash Buyer Pitch Dashboard. */
+export interface StrAssumptions {
+  nightly_rate: number;
+  occupancy_pct: number;
+  monthly_maintenance: number;
+}
+
 

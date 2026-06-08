@@ -33,4 +33,19 @@ export const contractKeys = {
 export const analyticsKeys = {
   wholesale: (propertyId: string) =>
     ["analytics", "wholesale", propertyId] as const,
+  wholesaleStr: (
+    propertyId: string,
+    nightly_rate: number,
+    occupancy_pct: number,
+    monthly_maintenance: number
+  ) =>
+    [
+      "analytics",
+      "wholesale",
+      propertyId,
+      "str",
+      nightly_rate,
+      occupancy_pct,
+      monthly_maintenance,
+    ] as const,
 };

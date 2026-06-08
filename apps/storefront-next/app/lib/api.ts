@@ -682,15 +682,28 @@ export const api = {
   },
 
   getWholesaleAnalytics: async (
-    propertyId: string
+    propertyId: string,
+    strParams?: { nightly_rate?: number; occupancy_pct?: number; monthly_maintenance?: number }
   ): Promise<WholesaleDealMetrics> => {
     const token = getBearerToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const response = await fetch(
-      `${resolveApiBaseUrl()}/api/v1/analytics/wholesale/${encodeURIComponent(propertyId)}`,
-      { method: "GET", headers, cache: "no-store" }
-    );
+
+    const search = new URLSearchParams();
+    if (strParams?.nightly_rate != null) {
+      search.set("nightly_rate", String(strParams.nightly_rate));
+    }
+    if (strParams?.occupancy_pct != null) {
+      search.set("occupancy_pct", String(strParams.occupancy_pct));
+    }
+    if (strParams?.monthly_maintenance != null) {
+      search.set("monthly_maintenance", String(strParams.monthly_maintenance));
+    }
+
+    const query = search.toString();
+    const url = `${resolveApiBaseUrl()}/api/v1/analytics/wholesale/${encodeURIComponent(propertyId)}${query ? `?${query}` : ""}`;
+
+    const response = await fetch(url, { method: "GET", headers, cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Wholesale analytics failed: ${response.statusText}`);
     }
