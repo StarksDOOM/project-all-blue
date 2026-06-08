@@ -89,22 +89,32 @@ class ContractLifecycleManager:
             - Adds notification tasks to background_tasks.
         """
         try:
-            # Extract identifiers from the payload
-            # Support both flat JSON keys and nested DocuSign structure
+            # Extract identifiers from the DocuSeal payload robustly
+            event_type = event_payload.get("event") or event_payload.get("event_type")
+            data = event_payload.get("data")
+            if not isinstance(data, dict):
+                data = {}
+
             envelope_id = (
-                event_payload.get("envelopeId")
+                data.get("id")
+                or data.get("submission_id")
+                or event_payload.get("id")
+                or event_payload.get("submission_id")
+                or event_payload.get("envelopeId")
                 or event_payload.get("envelope_id")
-                or event_payload.get("envelopeSummary", {}).get("envelopeId")
             )
+            if envelope_id is not None:
+                envelope_id = str(envelope_id)
+
             raw_status = (
-                event_payload.get("status")
+                data.get("status")
+                or event_payload.get("status")
                 or event_payload.get("envelopeStatus")
-                or event_payload.get("envelopeSummary", {}).get("status")
             )
 
             if not envelope_id or not raw_status:
                 logger.warning(
-                    "DocuSign webhook payload missing envelopeId or status. envelopeId=%s status=%s",
+                    "DocuSeal webhook payload missing envelope/submission ID or status. ID=%s status=%s",
                     envelope_id,
                     raw_status,
                 )
@@ -113,17 +123,17 @@ class ContractLifecycleManager:
             # Normalize the status
             normalized_status = raw_status.strip().lower()
 
-            # Find matching LegalContract tracking row
+            # Find matching LegalContract tracking row (stores submission ID in docusign_envelope_id)
             stmt = select(LegalContract).where(LegalContract.docusign_envelope_id == envelope_id)
             contract = session.exec(stmt).first()
 
             if not contract:
-                logger.warning("No LegalContract found matching DocuSign envelope ID: %s", envelope_id)
+                logger.warning("No LegalContract found matching DocuSeal submission ID: %s", envelope_id)
                 return
 
             # Determine new status
             new_status = None
-            if normalized_status == "completed":
+            if normalized_status in ("completed", "submission.completed"):
                 new_status = "executed"
             elif normalized_status == "declined":
                 new_status = "declined"
@@ -187,5 +197,5 @@ class ContractLifecycleManager:
                 )
 
         except Exception as exc:
-            logger.exception("Failed to process DocuSign lifecycle event: %s", exc)
+            logger.exception("Failed to process DocuSeal lifecycle event: %s", exc)
             session.rollback()
