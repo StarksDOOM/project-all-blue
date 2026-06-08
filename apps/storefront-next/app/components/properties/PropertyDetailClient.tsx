@@ -54,6 +54,13 @@ const PropertyImageGallery = dynamic(
     ),
   { loading: () => <Skeleton className="h-64 w-full rounded-lg" /> }
 );
+const CashBuyerPitchDashboard = dynamic(
+  () =>
+    import("@/components/properties/CashBuyerPitchDashboard").then(
+      (mod) => mod.CashBuyerPitchDashboard
+    ),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full rounded-lg" /> }
+);
 
 function formatBaths(value: number | null): string {
   if (value == null || value <= 0) return "—";
@@ -451,6 +458,13 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                     )}
                   </CardContent>
                 </Card>
+              ) : null}
+
+              {isAgentOrAdmin ? (
+                <CashBuyerPitchDashboard
+                  propertyBluId={propertyBluId}
+                  wholesaleData={wholesaleData}
+                />
               ) : null}
             </div>
 
