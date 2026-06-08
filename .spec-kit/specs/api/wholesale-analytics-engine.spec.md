@@ -1,6 +1,6 @@
 # Spec: Wholesale Pricing & Analytics Engine (Turnkey Properties)
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.3  
 **Branch:** `feat/stream-6-phase-1.3-turnkey-wholesale-pivot` ← `develop`  
 **Apps:** `apps/api-fastapi/`, `apps/storefront-next/`  

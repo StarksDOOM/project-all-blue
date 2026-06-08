@@ -29,7 +29,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/contract-generation-docusign.spec.md](specs/api/contract-generation-docusign.spec.md) | STREAM 6 PHASE 1.0 | SHIPPED |
 | [api/docusign-connect-webhooks.spec.md](specs/api/docusign-connect-webhooks.spec.md) | STREAM 6 PHASE 1.1 | SHIPPED |
 | [api/transaction-ledger-dashboard.spec.md](specs/api/transaction-ledger-dashboard.spec.md) | STREAM 6 PHASE 1.2 | SHIPPED |
-| [api/wholesale-analytics-engine.spec.md](specs/api/wholesale-analytics-engine.spec.md) | STREAM 6 PHASE 1.3 | DRAFT |
+| [api/wholesale-analytics-engine.spec.md](specs/api/wholesale-analytics-engine.spec.md) | STREAM 6 PHASE 1.3 | SHIPPED |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -58,7 +58,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.0  contract-generation-docusign (M2M authentication, envelope builder, dispatcher, UI action trigger) [SHIPPED; baseline 12]
   PHASE 1.1  docusign-connect-webhooks (stateless Connect webhook, HMAC SHA-256 verification, notifications) [SHIPPED; baseline 14]
   PHASE 1.2  transaction-ledger-dashboard (protected backend service, GET /contracts route, Next.js table UI) [SHIPPED; baseline 15]
-  PHASE 1.3  wholesale-analytics-engine (stateless WholesalePricingEngine, sector median EMV, role-gated Guía de Oferta UI) [DRAFT; baseline 16]
+  PHASE 1.3  wholesale-analytics-engine (stateless WholesalePricingEngine, sector median EMV, role-gated Guía de Oferta UI) [SHIPPED; baseline 16]
 ```
 
 ## Developer tooling
