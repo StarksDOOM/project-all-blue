@@ -152,3 +152,74 @@ def api_client(db_session: Session) -> Generator[TestClient, None, None]:
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def clean_test_db_rows() -> Generator[None, None, None]:
+    """
+    Autouse fixture that runs after every single test function to ensure
+    all test-created DB rows are completely purged from the Postgres database.
+    """
+    yield
+    from sqlmodel import text
+    with Session(engine) as session:
+        # Delete matches linked to test alerts or test properties
+        session.exec(
+            text(
+                "DELETE FROM real_estate.saved_search_matches "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
+                "OR saved_search_alert_id IN ("
+                "   SELECT id FROM real_estate.saved_search_alerts "
+                "   WHERE user_id LIKE 'limit-test-%' OR user_id = '11111111-1111-1111-1111-111111111111' OR user_id = 'test-user-1'"
+                ")"
+            )
+        )
+        # Delete legal contracts linked to test properties or test transaction sessions
+        session.exec(
+            text(
+                "DELETE FROM real_estate.legal_contracts "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
+                "OR transaction_session_id IN ("
+                "   SELECT id FROM real_estate.transaction_sessions "
+                "   WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "      OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
+                ")"
+            )
+        )
+        # Delete transaction sessions linked to test properties
+        session.exec(
+            text(
+                "DELETE FROM real_estate.transaction_sessions "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%')"
+            )
+        )
+        # Delete saved search alerts for test users or with test titles
+        session.exec(
+            text(
+                "DELETE FROM real_estate.saved_search_alerts "
+                "WHERE user_id LIKE 'limit-test-%' OR user_id = '11111111-1111-1111-1111-111111111111' "
+                "OR user_id = 'test-user-1' OR user_id = 'agent-user-ws' OR user_id = 'agent-user-123' "
+                "OR user_id = 'agent-uid-100' OR user_id = 'agent-uid-200' "
+                "OR title LIKE 'Client Cap%' OR title = 'Match test' "
+                "OR title = 'Test Piantini 2hab' OR title = 'Test Alert for Notifications'"
+            )
+        )
+        # Delete properties with test patterns
+        session.exec(
+            text(
+                "DELETE FROM real_estate.properties "
+                "WHERE id LIKE '#BLU-TEST%' OR id LIKE '#BLU-WS%' "
+                "OR remote_id = '222598' OR remote_id LIKE 'test-remote-%'"
+            )
+        )
+        # Delete scraper error logs for test IDs
+        session.exec(
+            text(
+                "DELETE FROM real_estate.scraper_error_logs "
+                "WHERE remote_id IN ('222598', '999001', '999002')"
+            )
+        )
+        session.commit()
