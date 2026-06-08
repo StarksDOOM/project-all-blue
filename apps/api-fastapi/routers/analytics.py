@@ -63,8 +63,8 @@ async def get_wholesale_analytics(
     occupancy_pct: float | None = Query(
         None, ge=0, le=1.0, description="Occupancy ratio 0.0–1.0"
     ),
-    monthly_hoa: float | None = Query(
-        None, ge=0, description="Monthly HOA / maintenance dues in USD"
+    monthly_maintenance: float | None = Query(
+        None, ge=0, description="Monthly maintenance dues in USD"
     ),
     session: Session = Depends(get_db_session),
     # _current_user: UserCredentials = Depends(_analytics_checker),  # DISABLED: Bypassed for local QA (no login page yet)
@@ -88,8 +88,8 @@ async def get_wholesale_analytics(
         occupancy_pct : float | None
             Occupancy ratio 0.0–1.0 (query param, optional; defaults to 0.70
             when nightly_rate is provided).
-        monthly_hoa : float | None
-            Monthly HOA dues in USD (query param, optional; defaults to 0.0).
+        monthly_maintenance : float | None
+            Monthly maintenance dues in USD (query param, optional; defaults to 0.0).
         session : Session
             Request-scoped SQLModel session injected by ``get_session``.
         _current_user : UserCredentials
@@ -119,5 +119,5 @@ async def get_wholesale_analytics(
         session=session,
         nightly_rate=nightly_rate,
         occupancy_pct=occupancy_pct,
-        monthly_hoa=monthly_hoa,
+        monthly_maintenance=monthly_maintenance,
     )

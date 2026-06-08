@@ -100,7 +100,7 @@ class WholesalePricingEngine:
         *,
         nightly_rate: float | None = None,
         occupancy_pct: float | None = None,
-        monthly_hoa: float | None = None,
+        monthly_maintenance: float | None = None,
     ) -> WholesaleDealMetrics:
         """
         Compute wholesale deal metrics for the given property.
@@ -129,8 +129,8 @@ class WholesalePricingEngine:
             occupancy_pct : float | None
                 Occupancy ratio (0.0–1.0).  Defaults to ``0.70`` if ``nightly_rate``
                 is provided but ``occupancy_pct`` is ``None``.
-            monthly_hoa : float | None
-                Monthly HOA / maintenance dues in USD.  Defaults to ``0.0``.
+            monthly_maintenance : float | None
+                Monthly complex maintenance dues in USD.  Defaults to ``0.0``.
 
         Returns:
             WholesaleDealMetrics
@@ -164,7 +164,7 @@ class WholesalePricingEngine:
             str_kwargs = self.calculate_str_metrics(
                 nightly_rate=nightly_rate,
                 occupancy_pct=occupancy_pct if occupancy_pct is not None else 0.70,
-                monthly_hoa=monthly_hoa if monthly_hoa is not None else 0.0,
+                monthly_maintenance=monthly_maintenance if monthly_maintenance is not None else 0.0,
                 pitch_price=pitch_price,
             )
 
@@ -305,7 +305,7 @@ class WholesalePricingEngine:
         self,
         nightly_rate: float,
         occupancy_pct: float,
-        monthly_hoa: float,
+        monthly_maintenance: float,
         pitch_price: float,
     ) -> dict[str, float | None]:
         """
@@ -321,8 +321,8 @@ class WholesalePricingEngine:
                 Average nightly rental rate in USD.
             occupancy_pct : float
                 Expected occupancy ratio (0.0–1.0).
-            monthly_hoa : float
-                Monthly HOA or maintenance dues in USD.
+            monthly_maintenance : float
+                Monthly complex maintenance dues in USD.
             pitch_price : float
                 Total investor entry cost (MAO + assignment fee) used as
                 the denominator for Cash-on-Cash return.
@@ -337,7 +337,7 @@ class WholesalePricingEngine:
         """
         monthly_gross = nightly_rate * 30 * occupancy_pct
         pm_cost = monthly_gross * _PM_FEE_RATIO
-        monthly_net = monthly_gross - pm_cost - monthly_hoa - _MAINTENANCE_RESERVE
+        monthly_net = monthly_gross - pm_cost - monthly_maintenance - _MAINTENANCE_RESERVE
         annual_noi = monthly_net * 12
 
         cash_on_cash_pct = (annual_noi / pitch_price) * 100 if pitch_price > 0 else 0.0

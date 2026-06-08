@@ -40,7 +40,7 @@ Extend the existing `WholesalePricingEngine` to calculate Short-Term Rental (STR
 |-------|------|------------|---------|-------------|
 | `nightly_rate` | `float` | `ge=0` | `None` | Average nightly STR rate (USD) |
 | `occupancy_pct` | `float` | `ge=0, le=1.0` | `None` | Occupancy ratio 0.0–1.0 |
-| `monthly_hoa` | `float` | `ge=0` | `None` | Monthly HOA/maintenance dues (USD) |
+| `monthly_maintenance` | `float` | `ge=0` | `None` | Monthly complex maintenance dues (USD) |
 
 ### Extended response fields (populated only when `nightly_rate` is supplied)
 
@@ -48,7 +48,7 @@ Extend the existing `WholesalePricingEngine` to calculate Short-Term Rental (STR
 |-------|------|---------|
 | `str_monthly_gross` | `float \| null` | `nightly_rate × 30 × occupancy_pct` |
 | `str_pm_cost` | `float \| null` | `str_monthly_gross × 0.20` |
-| `str_monthly_net` | `float \| null` | `str_monthly_gross − str_pm_cost − monthly_hoa − 150` |
+| `str_monthly_net` | `float \| null` | `str_monthly_gross − str_pm_cost − monthly_maintenance − 150` |
 | `str_annual_noi` | `float \| null` | `str_monthly_net × 12` |
 | `str_cash_on_cash_pct` | `float \| null` | `(str_annual_noi / pitch_price) × 100` |
 | `str_projection_6mo` | `float \| null` | `str_monthly_net × 6` |
@@ -69,7 +69,7 @@ Extend the existing `WholesalePricingEngine` to calculate Short-Term Rental (STR
 ## 3. Storefront (if applicable)
 
 - **Component:** `CashBuyerPitchDashboard.tsx` — placed below existing "Guía de Oferta" card in `PropertyDetailClient.tsx`
-- **Controls:** Nightly Rate slider ($0–$500), Occupancy slider (0%–100%), Monthly HOA input ($0–$2000)
+- **Controls:** Nightly Rate slider ($0–$500), Occupancy slider (0%–100%), Monthly Maintenance input ($0–$2000)
 - **Display:** Metric cards for Monthly Gross, Monthly Net, Annual NOI, Cash-on-Cash %, and 6mo/1yr/3yr projections
 - **Behaviour:** Debounced onChange (300ms) re-fetches wholesale analytics with STR params
 - **React Query keys:** `analyticsKeys.wholesale(propertyBluId)` — keyed with STR params to avoid stale cache

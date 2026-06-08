@@ -122,7 +122,7 @@ class WholesaleDealMetrics(BaseModel):
         None, description="Property management cost: str_monthly_gross × 0.20 (USD)"
     )
     str_monthly_net: float | None = Field(
-        None, description="Monthly net income: gross − PM − HOA − maintenance reserve (USD)"
+        None, description="Monthly net income: gross − PM − maintenance − maintenance reserve (USD)"
     )
     str_annual_noi: float | None = Field(
         None, description="Annual Net Operating Income: str_monthly_net × 12 (USD)"
