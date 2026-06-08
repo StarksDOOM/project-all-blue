@@ -396,7 +396,7 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
                       <span className="text-amber-400">📊</span>
-                      {userRole === "admin" ? "Guía de Wholesaling — Desglose Completo" : "Guía de Wholesaling"}
+                      {userRole === "admin" ? "Guía de Oferta — Desglose Completo" : "Guía de Oferta"}
                     </CardTitle>
                     <CardDescription className="text-slate-400 text-xs">
                       Métricas calculadas automáticamente · sector {property.sector ?? "—"}
@@ -419,15 +419,9 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                               </span>
                             </div>
                             <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
-                              <span className="text-slate-400">ARV Estimado</span>
+                              <span className="text-slate-400">EMV Estimado</span>
                               <span className="font-mono font-semibold text-slate-200">
-                                ${wholesaleData.auto_arv.toLocaleString("en-US", { maximumFractionDigits: 0 })}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">
-                              <span className="text-slate-400">Reparaciones Est.</span>
-                              <span className="font-mono font-semibold text-red-400">
-                                −${wholesaleData.estimated_repairs.toLocaleString("en-US", { maximumFractionDigits: 0 })}
+                                ${wholesaleData.auto_emv.toLocaleString("en-US", { maximumFractionDigits: 0 })}
                               </span>
                             </div>
                             <div className="flex items-center justify-between border-b border-slate-700 pb-2 text-sm">

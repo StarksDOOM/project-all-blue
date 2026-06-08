@@ -688,7 +688,7 @@ export const api = {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const response = await fetch(
-      `${resolveApiBaseUrl()}/api/v1/analytics/wholesale/${propertyId}`,
+      `${resolveApiBaseUrl()}/api/v1/analytics/wholesale/${encodeURIComponent(propertyId)}`,
       { method: "GET", headers, cache: "no-store" }
     );
     if (!response.ok) {

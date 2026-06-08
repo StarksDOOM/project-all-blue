@@ -275,8 +275,7 @@ export interface WholesaleDealMetrics {
   property_id: string;
   sector: string;
   sector_median_price_per_sqm: number;
-  auto_arv: number;
-  estimated_repairs: number;
+  auto_emv: number;
   mao: number;
   assignment_fee: number;
   pitch_price: number;
