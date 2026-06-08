@@ -138,4 +138,7 @@ class WholesaleDealMetrics(BaseModel):
     )
     str_projection_3yr: float | None = Field(
         None, description="3-year net profit projection: str_monthly_net × 36 (USD)"
+    )
+    recommended_str_assumptions: dict[str, float] = Field(
+        ..., description="Recommended initial defaults for nightly_rate, occupancy_pct, and monthly_maintenance"
     )

@@ -44,6 +44,7 @@ from sqlmodel import Session, select
 
 from models import PropertyListing
 from schemas.contracts import WholesaleDealMetrics
+from services.str_default_predictor import StrDefaultPredictor
 
 # ---------------------------------------------------------------------------
 # Spec-locked formula constants
@@ -392,6 +393,12 @@ class WholesalePricingEngine:
         assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
         pitch_price = mao + assignment_fee
 
+        recommended = StrDefaultPredictor.predict_defaults(
+            square_meters=target.square_meters,
+            province=target.province,
+            sector=target.sector,
+        )
+
         return WholesaleDealMetrics(
             property_id=str(target.id),
             sector=target.sector,
@@ -400,5 +407,6 @@ class WholesalePricingEngine:
             mao=round(mao, 2),
             assignment_fee=round(assignment_fee, 2),
             pitch_price=round(pitch_price, 2),
+            recommended_str_assumptions=recommended,
             **(str_kwargs or {}),
         )
