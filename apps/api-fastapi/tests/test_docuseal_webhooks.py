@@ -1,16 +1,14 @@
 """
-Unit and integration tests for DocuSign Connect webhook ingestion and contract lifecycle updates.
+Unit and integration tests for DocuSeal webhook ingestion and contract lifecycle updates.
 
-STREAM 6 PHASE 1.1.
+STREAM 6 PHASE 1.5.
 """
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
 import json
-from typing import Generator
 import secrets
 from unittest.mock import MagicMock, patch
 
@@ -21,49 +19,47 @@ from sqlmodel import Session
 
 from models import LegalContract, PropertyListing
 from services.contract_lifecycle_manager import ContractLifecycleManager
-from services.docusign_webhook_validator import DocuSignWebhookValidator
+from services.docuseal_webhook_validator import DocuSealWebhookValidator
 from services.notification_dispatcher import NotificationDispatcher
 
-TEST_HMAC_SECRET = "test-hmac-webhook-secret-key-12345"
+TEST_HMAC_SECRET = "test-docuseal-webhook-secret-key-12345"
 
 
 @pytest.fixture(autouse=True)
 def _setup_webhook_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Setup webhook environment variables for isolated testing.
-
-    Purpose:
-        Inject a static mock HMAC secret key into the environment so validation behaves predictably.
     """
-    monkeypatch.setenv("DOCUSIGN_HMAC_SECRET", TEST_HMAC_SECRET)
+    monkeypatch.setenv("DOCUSEAL_WEBHOOK_SECRET", TEST_HMAC_SECRET)
 
 
-def _generate_hmac_signature(payload_bytes: bytes, secret: str = TEST_HMAC_SECRET) -> str:
+def _generate_docuseal_signature(payload_bytes: bytes, timestamp: str = "1716800000", secret: str = TEST_HMAC_SECRET) -> str:
     """
-    Generate mathematically valid Base64-encoded HMAC signature for a payload.
+    Generate mathematically valid X-Docuseal-Signature for a payload.
     """
-    digest = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).digest()
-    return base64.b64encode(digest).decode("utf-8")
+    message = f"{timestamp}.".encode("utf-8") + payload_bytes
+    signature = hmac.new(secret.encode("utf-8"), message, hashlib.sha256).hexdigest()
+    return f"{timestamp}.{signature}"
 
 
 def test_webhook_validator_success() -> None:
     """
-    Verify DocuSignWebhookValidator successfully validates valid Base64 and hex signatures.
+    Verify DocuSealWebhookValidator successfully validates valid signatures.
     """
-    payload = b'{"envelopeId":"env-123","status":"completed"}'
-    valid_sig = _generate_hmac_signature(payload)
+    payload = b'{"event":"submission.completed","data":{"id":12345,"status":"completed"}}'
+    valid_sig = _generate_docuseal_signature(payload)
 
-    validator = DocuSignWebhookValidator()
+    validator = DocuSealWebhookValidator()
     # Should run without raising any exceptions
     validator.verify(payload, valid_sig)
 
 
 def test_webhook_validator_missing_header() -> None:
     """
-    Verify DocuSignWebhookValidator raises HTTP 401 when signature header is missing.
+    Verify DocuSealWebhookValidator raises HTTP 401 when signature header is missing.
     """
-    payload = b'{"envelopeId":"env-123"}'
-    validator = DocuSignWebhookValidator()
+    payload = b'{"id":12345}'
+    validator = DocuSealWebhookValidator()
 
     with pytest.raises(Exception) as exc_info:
         validator.verify(payload, None)
@@ -74,12 +70,12 @@ def test_webhook_validator_missing_header() -> None:
 
 def test_webhook_validator_signature_mismatch() -> None:
     """
-    Verify DocuSignWebhookValidator raises HTTP 401 when signature does not match.
+    Verify DocuSealWebhookValidator raises HTTP 401 when signature does not match.
     """
-    payload = b'{"envelopeId":"env-123","status":"completed"}'
-    bad_sig = "invalid-sig-base64-encoding="
+    payload = b'{"id":12345}'
+    bad_sig = "1716800000.invalid-signature-hex"
 
-    validator = DocuSignWebhookValidator()
+    validator = DocuSealWebhookValidator()
 
     with pytest.raises(Exception) as exc_info:
         validator.verify(payload, bad_sig)
@@ -90,10 +86,10 @@ def test_webhook_validator_signature_mismatch() -> None:
 
 def test_webhook_validator_no_secret_skips() -> None:
     """
-    Verify DocuSignWebhookValidator skips check and does not raise error if secret is unset.
+    Verify DocuSealWebhookValidator skips check and does not raise error if secret is unset.
     """
     with patch("os.getenv", return_value=None):
-        validator = DocuSignWebhookValidator(hmac_secret=None)
+        validator = DocuSealWebhookValidator(settings=MagicMock(webhook_secret=None))
         # Should not raise even with missing signature
         validator.verify(b"{}", None)
 
@@ -106,7 +102,7 @@ def test_lifecycle_manager_updates_completed_to_executed(
     Verify ContractLifecycleManager updates a contract status to 'executed' on completion.
     """
     # Arrange: Create a contract in 'sent' state
-    envelope_id = f"env-completed-test-{secrets.token_hex(4)}"
+    envelope_id = f"submission-completed-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
@@ -119,7 +115,13 @@ def test_lifecycle_manager_updates_completed_to_executed(
     db_session.refresh(contract)
 
     # Act: Process completed event
-    payload = {"envelopeId": envelope_id, "status": "completed"}
+    payload = {
+        "event": "submission.completed",
+        "data": {
+            "id": envelope_id,
+            "status": "completed",
+        }
+    }
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
 
@@ -144,7 +146,7 @@ def test_lifecycle_manager_updates_declined(
     """
     Verify ContractLifecycleManager updates a contract status to 'declined' when declined.
     """
-    envelope_id = f"env-declined-test-{secrets.token_hex(4)}"
+    envelope_id = f"submission-declined-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
@@ -156,7 +158,13 @@ def test_lifecycle_manager_updates_declined(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": envelope_id, "status": "declined"}
+    payload = {
+        "event": "submission.declined",
+        "data": {
+            "id": envelope_id,
+            "status": "declined",
+        }
+    }
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
 
@@ -180,7 +188,7 @@ def test_lifecycle_manager_triggers_notification_on_executed(
     """
     Verify ContractLifecycleManager schedules notifications on contract completion.
     """
-    envelope_id = f"env-notify-test-{secrets.token_hex(4)}"
+    envelope_id = f"submission-notify-test-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
@@ -192,7 +200,13 @@ def test_lifecycle_manager_triggers_notification_on_executed(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": envelope_id, "status": "completed"}
+    payload = {
+        "event": "submission.completed",
+        "data": {
+            "id": envelope_id,
+            "status": "completed",
+        }
+    }
     manager = ContractLifecycleManager()
     mock_dispatcher = MagicMock(spec=NotificationDispatcher)
     background_tasks = BackgroundTasks()
@@ -206,7 +220,6 @@ def test_lifecycle_manager_triggers_notification_on_executed(
 
     # Check that dispatcher notification calls were scheduled
     assert mock_dispatcher.dispatch_contract_executed.call_count == 2
-    # Verify it notified the agent and the buyer
     calls = mock_dispatcher.dispatch_contract_executed.call_args_list
     assert calls[0][1]["recipient"] == seeded_property.agent_email or "agent@example.com"
     assert calls[1][1]["recipient"] == "cliente.comprador@example.com"
@@ -218,9 +231,9 @@ def test_webhook_endpoint_success(
     seeded_property: PropertyListing,
 ) -> None:
     """
-    Verify POST /api/v1/contracts/webhooks/docusign validates signature and updates contract status.
+    Verify POST /api/v1/contracts/webhooks/esign validates signature and updates contract status.
     """
-    envelope_id = f"env-endpoint-success-{secrets.token_hex(4)}"
+    envelope_id = f"sub-endpoint-success-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
@@ -232,17 +245,23 @@ def test_webhook_endpoint_success(
     db_session.commit()
     db_session.refresh(contract)
 
-    payload = {"envelopeId": envelope_id, "status": "completed"}
+    payload = {
+        "event": "submission.completed",
+        "data": {
+            "id": envelope_id,
+            "status": "completed",
+        }
+    }
     payload_bytes = json.dumps(payload).encode("utf-8")
-    sig = _generate_hmac_signature(payload_bytes)
+    sig = _generate_docuseal_signature(payload_bytes)
 
     headers = {
         "Content-Type": "application/json",
-        "X-DocuSign-Signature-1": sig,
+        "X-Docuseal-Signature": sig,
     }
 
     response = api_client.post(
-        "/api/v1/contracts/webhooks/docusign",
+        "/api/v1/contracts/webhooks/esign",
         content=payload_bytes,
         headers=headers,
     )
@@ -263,9 +282,9 @@ def test_webhook_endpoint_invalid_signature(
     seeded_property: PropertyListing,
 ) -> None:
     """
-    Verify POST /api/v1/contracts/webhooks/docusign blocks request if HMAC signature is invalid.
+    Verify POST /api/v1/contracts/webhooks/esign blocks request if HMAC signature is invalid.
     """
-    envelope_id = f"env-endpoint-fail-{secrets.token_hex(4)}"
+    envelope_id = f"sub-endpoint-fail-{secrets.token_hex(4)}"
     contract = LegalContract(
         property_id=seeded_property.id,
         user_id="agent-123",
@@ -276,16 +295,22 @@ def test_webhook_endpoint_invalid_signature(
     db_session.add(contract)
     db_session.commit()
 
-    payload = {"envelopeId": envelope_id, "status": "completed"}
+    payload = {
+        "event": "submission.completed",
+        "data": {
+            "id": envelope_id,
+            "status": "completed",
+        }
+    }
     payload_bytes = json.dumps(payload).encode("utf-8")
 
     headers = {
         "Content-Type": "application/json",
-        "X-DocuSign-Signature-1": "invalid-HMAC-sig-value",
+        "X-Docuseal-Signature": "1716800000.invalid-signature-hex",
     }
 
     response = api_client.post(
-        "/api/v1/contracts/webhooks/docusign",
+        "/api/v1/contracts/webhooks/esign",
         content=payload_bytes,
         headers=headers,
     )
@@ -295,18 +320,18 @@ def test_webhook_endpoint_invalid_signature(
 
 def test_webhook_endpoint_invalid_json(api_client: TestClient) -> None:
     """
-    Verify POST /api/v1/contracts/webhooks/docusign returns 400 Bad Request on malformed JSON payload.
+    Verify POST /api/v1/contracts/webhooks/esign returns 400 Bad Request on malformed JSON payload.
     """
     bad_payload = b"not-a-valid-json-string"
-    sig = _generate_hmac_signature(bad_payload)
+    sig = _generate_docuseal_signature(bad_payload)
 
     headers = {
         "Content-Type": "application/json",
-        "X-DocuSign-Signature-1": sig,
+        "X-Docuseal-Signature": sig,
     }
 
     response = api_client.post(
-        "/api/v1/contracts/webhooks/docusign",
+        "/api/v1/contracts/webhooks/esign",
         content=bad_payload,
         headers=headers,
     )
