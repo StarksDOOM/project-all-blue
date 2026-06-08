@@ -25,15 +25,13 @@ from schemas.contracts import (
     DashboardContractResponse,
 )
 from services.auth import RoleChecker, UserCredentials, UserRole, get_current_user
-from services.contract_dispatcher import ContractDispatcher
-from services.contract_envelope_builder import ContractEnvelopeBuilder
-from services.docusign_jwt_authenticator import DocuSignJWTAuthenticator
+from services.docuseal_dispatcher import DocuSealDispatcher
+from services.docuseal_webhook_validator import DocuSealWebhookValidator
 from services.contract_service import (
     contract_to_response,
     get_contract,
     initialize_contract,
 )
-from services.docusign_webhook_validator import DocuSignWebhookValidator
 from services.contract_lifecycle_manager import ContractLifecycleManager
 from services.notification_dispatcher import NotificationDispatcher
 from services.contract_query_service import ContractQueryService
@@ -46,22 +44,14 @@ router = APIRouter(prefix="/api/v1/contracts", tags=["contracts"])
 generate_contract_checker = RoleChecker(allowed_roles=[UserRole.AGENT, UserRole.ADMIN])
 
 
-def get_authenticator() -> DocuSignJWTAuthenticator:
-    """Dependency resolver for DocuSign M2M Authenticator."""
-    return DocuSignJWTAuthenticator()
+def get_docuseal_dispatcher() -> DocuSealDispatcher:
+    """Dependency resolver for DocuSeal execution container."""
+    return DocuSealDispatcher()
 
 
-def get_envelope_builder() -> ContractEnvelopeBuilder:
-    """Dependency resolver for DocuSign envelope mapper."""
-    return ContractEnvelopeBuilder()
-
-
-def get_dispatcher(
-    authenticator: DocuSignJWTAuthenticator = Depends(get_authenticator),
-) -> ContractDispatcher:
-    """Dependency resolver for DocuSign execution container."""
-    api_client = authenticator.authenticate()
-    return ContractDispatcher(api_client)
+def get_docuseal_webhook_validator() -> DocuSealWebhookValidator:
+    """Dependency resolver for DocuSeal Webhook validator."""
+    return DocuSealWebhookValidator()
 
 
 @router.post(
@@ -106,17 +96,15 @@ def generate_contract(
     payload: ContractGenerateRequest,
     credentials: UserCredentials = Depends(get_current_user),
     session: Session = Depends(get_db_session),
-    envelope_builder: ContractEnvelopeBuilder = Depends(get_envelope_builder),
-    dispatcher: ContractDispatcher = Depends(get_dispatcher),
+    dispatcher: DocuSealDispatcher = Depends(get_docuseal_dispatcher),
 ) -> ContractGenerateResponse:
     """
-    Generate and dispatch a DocuSign contract envelope for a property listing.
+    Generate and dispatch a DocuSeal contract submission for a property listing.
 
     Purpose:
-        Perform end-to-end M2M contract generation. Loads the property listing,
-        builds the DocuSign EnvelopeDefinition containing listing details and
-        signatures, dispatches it to the DocuSign servers, and records a
-        LegalContract row in the database tracking the envelope status.
+        Perform end-to-end contract generation. Loads the property listing,
+        submits the e-sign request to DocuSeal using templates, and records a
+        LegalContract row in the database tracking the status.
 
     Lifecycle:
         Called by agents or admins on the storefront via the Property Detail page.
@@ -124,12 +112,11 @@ def generate_contract(
 
     Thread-safety:
         Fully thread-safe. Uses FastAPI request-scoped session and stateless
-        builders/dispatchers.
+        dispatchers.
 
     Collaborators:
         - PropertyListing (verifies existence and fetches metadata)
-        - ContractEnvelopeBuilder (maps data to DocuSign)
-        - ContractDispatcher (sends to DocuSign)
+        - DocuSealDispatcher (sends request to DocuSeal)
         - Session (writes LegalContract)
 
     Invariants:
@@ -149,11 +136,12 @@ def generate_contract(
             detail="Active property listing not found",
         )
 
-    # Build the envelope definition
-    envelope_definition = envelope_builder.build_envelope(listing, credentials)
-
-    # Dispatch to DocuSign
-    envelope_id = dispatcher.dispatch(envelope_definition)
+    # Dispatch to DocuSeal
+    envelope_id = dispatcher.dispatch(
+        property_id=listing.id,
+        buyer_email="cliente.comprador@example.com",
+        agent_email=credentials.email,
+    )
 
     # Generate a version hash of the metadata
     version_hash_input = f"{listing.id}-{datetime.now(timezone.utc).isoformat()}"
@@ -173,7 +161,7 @@ def generate_contract(
     session.refresh(contract)
 
     logger.info(
-        "DocuSign contract generated successfully: listing_id=%s envelope_id=%s contract_id=%s",
+        "DocuSeal contract generated successfully: listing_id=%s envelope_id=%s contract_id=%s",
         listing.id,
         envelope_id,
         contract.id,
@@ -186,11 +174,6 @@ def generate_contract(
     )
 
 
-def get_webhook_validator() -> DocuSignWebhookValidator:
-    """Dependency resolver for DocuSign Webhook HMAC validator."""
-    return DocuSignWebhookValidator()
-
-
 def get_lifecycle_manager() -> ContractLifecycleManager:
     """Dependency resolver for standalone contract lifecycle processor."""
     return ContractLifecycleManager()
@@ -201,44 +184,44 @@ def get_notification_dispatcher() -> NotificationDispatcher:
     return NotificationDispatcher()
 
 
-@router.post("/webhooks/docusign", status_code=status.HTTP_200_OK)
-async def docusign_webhook_callback(
+@router.post("/webhooks/esign", status_code=status.HTTP_200_OK)
+async def docuseal_webhook_callback(
     request: Request,
     background_tasks: BackgroundTasks,
-    x_docusign_signature_1: str | None = Header(default=None, alias="X-DocuSign-Signature-1"),
+    x_docuseal_signature: str | None = Header(default=None, alias="X-Docuseal-Signature"),
     session: Session = Depends(get_db_session),
-    validator: DocuSignWebhookValidator = Depends(get_webhook_validator),
+    validator: DocuSealWebhookValidator = Depends(get_docuseal_webhook_validator),
     lifecycle_manager: ContractLifecycleManager = Depends(get_lifecycle_manager),
     dispatcher: NotificationDispatcher = Depends(get_notification_dispatcher),
 ) -> dict[str, str]:
     """
-    DocuSign Connect Webhook callback for standalone property contracts.
+    DocuSeal Connect Webhook callback for standalone property contracts.
 
     Purpose:
-        Ingest completed/declined signing envelope updates from DocuSign Connect.
+        Ingest completed/declined signing envelope updates from DocuSeal.
         Validates HMAC signature and schedules database updates and notification dispatch.
 
     Lifecycle:
-        Invoked as a webhook callback by DocuSign Connect service when signing completes/declines.
+        Invoked as a webhook callback by DocuSeal when signing completes/declines.
 
     Thread-safety:
         Fully thread-safe.
 
     Collaborators:
-        - DocuSignWebhookValidator (cryptographic validator)
+        - DocuSealWebhookValidator (cryptographic validator)
         - ContractLifecycleManager (business lifecycle processor)
         - Session (database persistence)
     """
     raw_body = await request.body()
 
     # 1. Cryptographically verify payload signature
-    validator.verify(raw_body, x_docusign_signature_1)
+    validator.verify(raw_body, x_docuseal_signature)
 
     # 2. Parse payload JSON
     try:
         payload = json.loads(raw_body.decode("utf-8"))
     except Exception as exc:
-        logger.error("Failed to parse DocuSign webhook raw body JSON: %s", exc)
+        logger.error("Failed to parse DocuSeal webhook raw body JSON: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Malformed JSON payload",
