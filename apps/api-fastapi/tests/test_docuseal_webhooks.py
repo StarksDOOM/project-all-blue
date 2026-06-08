@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from models import LegalContract, PropertyListing
+from config.docuseal_settings import get_docuseal_settings
 from services.contract_lifecycle_manager import ContractLifecycleManager
 from services.docuseal_webhook_validator import DocuSealWebhookValidator
 from services.notification_dispatcher import NotificationDispatcher
@@ -29,8 +30,16 @@ TEST_HMAC_SECRET = "test-docuseal-webhook-secret-key-12345"
 def _setup_webhook_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Setup webhook environment variables for isolated testing.
+
+    Clears the LRU-cached ``get_docuseal_settings`` so that the monkeypatched
+    env var is picked up even when an earlier test module cached settings
+    without DOCUSEAL_WEBHOOK_SECRET.
     """
+    get_docuseal_settings.cache_clear()
     monkeypatch.setenv("DOCUSEAL_WEBHOOK_SECRET", TEST_HMAC_SECRET)
+    get_docuseal_settings.cache_clear()
+    yield
+    get_docuseal_settings.cache_clear()
 
 
 def _generate_docuseal_signature(payload_bytes: bytes, timestamp: str = "1716800000", secret: str = TEST_HMAC_SECRET) -> str:

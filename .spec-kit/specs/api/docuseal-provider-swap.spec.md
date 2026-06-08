@@ -1,6 +1,6 @@
 # Spec: E-Sign Provider Swap: DocuSeal
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.5  
 **Branch:** `feat/stream-6-phase-1.5-docuseal-swap` ← `develop`  
 **Apps:** `apps/api-fastapi/`  
