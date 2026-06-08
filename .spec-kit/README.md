@@ -58,7 +58,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.0  contract-generation-docusign (M2M authentication, envelope builder, dispatcher, UI action trigger) [SHIPPED; baseline 12]
   PHASE 1.1  docusign-connect-webhooks (stateless Connect webhook, HMAC SHA-256 verification, notifications) [SHIPPED; baseline 14]
   PHASE 1.2  transaction-ledger-dashboard (protected backend service, GET /contracts route, Next.js table UI) [SHIPPED; baseline 15]
-  PHASE 1.3  wholesale-analytics-engine (stateless WholesalePricingEngine, sector median ARV, role-gated Guía de Wholesaling UI) [DRAFT; baseline 16]
+  PHASE 1.3  wholesale-analytics-engine (stateless WholesalePricingEngine, sector median EMV, role-gated Guía de Oferta UI) [DRAFT; baseline 16]
 ```
 
 ## Developer tooling

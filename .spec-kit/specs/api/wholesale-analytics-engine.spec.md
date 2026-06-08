@@ -1,8 +1,8 @@
-# Spec: Wholesale Pricing & Analytics Engine
+# Spec: Wholesale Pricing & Analytics Engine (Turnkey Properties)
 
 ## Status: DRAFT
 **Roadmap:** STREAM 6 PHASE 1.3  
-**Branch:** `feat/stream-6-phase-1.3-wholesale-analytics-engine` ← `develop`  
+**Branch:** `feat/stream-6-phase-1.3-turnkey-wholesale-pivot` ← `develop`  
 **Apps:** `apps/api-fastapi/`, `apps/storefront-next/`  
 **Abstraction delta:** 15 → 16 (adds `WholesalePricingEngine`)
 
@@ -10,22 +10,19 @@
 
 ## Problem
 
-Agents need a fast, automated deal analysis to determine if a property qualifies for a
-wholesale assignment and at what price. Manual calculation is error-prone and inconsistent.
-The system must derive ARV from live sector data and compute MAO/pitch price using
-hardcoded wholesale heuristics — without exposing the assignment margin to Agents.
+Agents need a fast, automated deal analysis for turnkey/new properties to determine if they qualify for a wholesale assignment and at what price. Manual calculation is error-prone and inconsistent. The system must derive Estimated Market Value (EMV) from live sector data and compute MAO/pitch price using hardcoded wholesale heuristics — without exposing the assignment margin to Agents.
 
 ---
 
 ## Outcomes
 
-1. `WholesalePricingEngine` computes ARV, Repairs, MAO, Assignment Fee, and Pitch Price
-   deterministically from DB sector averages and fixed multipliers.
-2. `GET /api/v1/analytics/wholesale/{property_id}` is guarded by RBAC (AGENT + ADMIN only).
-3. Frontend property detail page renders a role-gated "Guía de Wholesaling" card:
-   - AGENT: sees MAO + Pitch Price only (no margin disclosed).
-   - ADMIN: sees full breakdown including sector median, ARV, repairs, and assignment fee.
-4. All existing 87 tests pass with 0 regressions; 10 new assertions added.
+1. `WholesalePricingEngine` computes EMV, MAO, Assignment Fee, and Pitch Price deterministically from DB sector averages.
+2. There are **NO repair calculations**.
+3. `GET /api/v1/analytics/wholesale/{property_id}` is guarded by RBAC (AGENT + ADMIN only).
+4. Storefront property detail page renders a role-gated "Guía de Oferta" card:
+   - AGENT: sees MAO + Pitch Price only (no margin disclosed) formatted as a dialer script.
+   - ADMIN: sees full breakdown including sector median, EMV, and assignment fee.
+5. All existing 87 tests pass with 0 regressions; 10 new assertions added.
 
 ---
 
@@ -38,7 +35,7 @@ hardcoded wholesale heuristics — without exposing the assignment margin to Age
 
 #### Method: `calculate_deal_metrics`
 
-```
+```python
 calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetrics
 ```
 
@@ -49,10 +46,9 @@ calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetri
 | Load target | `SELECT * FROM propertylisting WHERE id = property_id` | `404` if not found or `is_active = false` |
 | Sector peers | `SELECT price_usd, square_meters FROM propertylisting WHERE sector = target.sector AND is_active = true` | `422` if zero peers |
 | `sector_median_price_per_sqm` | `median(price_usd / square_meters)` for all active peers (target included) | — |
-| `auto_arv` | `sector_median_price_per_sqm × target.square_meters` | — |
-| `estimated_repairs` | `target.square_meters × 150.0` | — |
-| `mao` | `(auto_arv × 0.70) − estimated_repairs` | — |
-| `assignment_fee` | `max(auto_arv × 0.05, 5000.0)` | — |
+| `auto_emv` | `sector_median_price_per_sqm × target.square_meters` | — |
+| `mao` | `auto_emv × 0.80` | — |
+| `assignment_fee` | `max(auto_emv × 0.05, 5000.0)` | — |
 | `pitch_price` | `mao + assignment_fee` | — |
 
 **Thread-safety:** Stateless; each call receives its own `session`. Safe for concurrent use.  
@@ -72,11 +68,10 @@ calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetri
   "property_id": "string",
   "sector": "string",
   "sector_median_price_per_sqm": 1234.56,
-  "auto_arv": 98765.43,
-  "estimated_repairs": 12000.00,
-  "mao": 57135.80,
+  "auto_emv": 98765.43,
+  "mao": 79012.34,
   "assignment_fee": 5000.00,
-  "pitch_price": 62135.80
+  "pitch_price": 84012.34
 }
 ```
 
@@ -90,16 +85,16 @@ calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetri
 ## Frontend Contract
 
 **File:** `apps/storefront-next/app/components/properties/PropertyDetailClient.tsx`  
-**Component added:** `WholesaleGuideCard` (inline or extracted client component)
+**Component added:** "Guía de Oferta" Card
 
 ### AGENT view (role === "agent")
-- Label: **Guía de Wholesaling**
+- Label: **Guía de Oferta**
 - Shows: "Oferta Máxima al Vendedor" (MAO) + "Precio para Inversionista" (Pitch Price)
-- Hides: sector median, ARV, repairs, assignment fee
+- Hides: sector median, EMV, assignment fee
 
 ### ADMIN view (role === "admin")
-- Label: **Guía de Wholesaling — Desglose Completo**
-- Shows: all 7 fields (sector, median $/m², ARV, repairs, MAO, assignment fee, pitch price)
+- Label: **Guía de Oferta — Desglose Completo**
+- Shows: all fields (sector, median $/m², EMV, MAO, assignment fee, pitch price)
 
 ### CLIENT / unauthenticated
 - Card not rendered; `useQuery` not triggered.
@@ -110,10 +105,10 @@ calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetri
 
 | Test | Assertion |
 |---|---|
-| `test_engine_arv_calculation` | `auto_arv == median × sqm` with ≥2 real DB peers |
-| `test_engine_mao_formula` | `mao == (arv × 0.70) − repairs` |
-| `test_engine_assignment_fee_percentage` | Fee = `arv × 0.05` when result ≥ $5000 |
-| `test_engine_assignment_fee_floor` | Fee = `5000.0` when `arv × 0.05 < 5000` |
+| `test_engine_emv_calculation` | `auto_emv == median × sqm` with ≥2 real DB peers |
+| `test_engine_mao_formula` | `mao == emv × 0.80` |
+| `test_engine_assignment_fee_percentage` | Fee = `emv × 0.05` when result >= $5000 |
+| `test_engine_assignment_fee_floor` | Fee = `5000.0` when `emv × 0.05 < 5000` |
 | `test_engine_pitch_price` | `pitch_price == mao + assignment_fee` |
 | `test_route_agent_200` | AGENT JWT → 200, correct JSON keys |
 | `test_route_admin_200` | ADMIN JWT → 200, correct JSON keys |
@@ -127,6 +122,6 @@ calculate_deal_metrics(property_id: str, session: Session) -> WholesaleDealMetri
 
 ## Drift Policy
 
-- Formula constants (0.70, 150.0, 0.05, 5000.0) are hardcoded invariants. Any change requires a spec update and user approval.
+- Formula constants (0.80, 0.05, 5000.0) are hardcoded invariants. Any change requires a spec update and user approval.
 - Field source: `price_usd` (always populated) used for sector median. `list_price` is ignored.
 - Zero-peer behaviour: `422 Unprocessable Entity` — no silent fallback.
