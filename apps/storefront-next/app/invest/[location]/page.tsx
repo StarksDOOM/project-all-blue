@@ -35,13 +35,17 @@ export default async function InvestPage({ params }: InvestPageProps) {
   // 2. Fetch properties matching search key
   const { data: properties } = await fetchPropertiesPage({
     keyword: searchKey,
+    property_type: "venta",
     limit: 1,
   });
 
   let selectedProperty = properties[0];
   if (!selectedProperty) {
     // Fallback to first available property in the DB
-    const { data: fallbackProps } = await fetchPropertiesPage({ limit: 1 });
+    const { data: fallbackProps } = await fetchPropertiesPage({
+      property_type: "venta",
+      limit: 1,
+    });
     selectedProperty = fallbackProps[0];
   }
 

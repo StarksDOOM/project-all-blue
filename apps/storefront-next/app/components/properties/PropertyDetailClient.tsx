@@ -155,7 +155,7 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
   const { data: wholesaleData, isLoading: isWholesaleLoading } = useQuery<WholesaleDealMetrics>({
     queryKey: analyticsKeys.wholesale(propertyBluId),
     queryFn: () => api.getWholesaleAnalytics(propertyBluId),
-    enabled: isAgentOrAdmin && propertyBluId.length > 0,
+    enabled: isAgentOrAdmin && propertyBluId.length > 0 && property?.business_type === "venta",
     staleTime: 300_000,
     retry: false,
   });
@@ -399,7 +399,7 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
 
               <PortalOriginalLink storedUrl={property.url} remoteId={property.remote_id} />
 
-              {isAgentOrAdmin ? (
+              {isAgentOrAdmin && property.business_type === "venta" ? (
                 <Card className="border-slate-200 bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-lg">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base font-semibold text-white">
@@ -460,7 +460,7 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                 </Card>
               ) : null}
 
-              {isAgentOrAdmin ? (
+              {isAgentOrAdmin && property.business_type === "venta" ? (
                 <CashBuyerPitchDashboard
                   propertyBluId={propertyBluId}
                   wholesaleData={wholesaleData}
