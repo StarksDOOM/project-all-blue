@@ -245,6 +245,7 @@ class LegalContract(SQLModel, table=True):
     docusign_envelope_id: Optional[str] = Field(default=None, nullable=True, index=True)
     docusign_status: Optional[str] = Field(default=None, nullable=True, index=True)
     audit_certificate_path: Optional[str] = Field(default=None, nullable=True)
+    signing_url: Optional[str] = Field(default=None, nullable=True)
 
 
 class SRLContract(AllBlueBaseModel, table=True):

@@ -43,7 +43,7 @@ class TransactionResponse(BaseModel):
 
 class LegalContractResponse(BaseModel):
     id: str
-    transaction_session_id: str
+    transaction_session_id: str | None = None
     file_path: str | None
     storage_url: str | None
     document_body: str
@@ -56,5 +56,6 @@ class LegalContractResponse(BaseModel):
     docusign_status: str | None = None
     has_audit_certificate: bool = False
     audit_certificate_path: str | None = None
-    transaction: TransactionResponse
+    transaction: TransactionResponse | None = None
     property: dict
+    signing_url: str | None = None
