@@ -34,7 +34,13 @@ def compile_property_filters(filters: PropertyFilterParams) -> list[Any]:
     Build ANDed SQLAlchemy criteria. Always excludes soft-deleted rows.
     No raw SQL — planner-friendly parameterized expressions only.
     """
-    criteria: list[Any] = [PropertyListing.deleted_at == None]
+    criteria: list[Any] = [
+        PropertyListing.deleted_at == None,
+        or_(
+            PropertyListing.listing_type == None,
+            PropertyListing.listing_type != "FOR_RENT",
+        ),
+    ]
 
     if filters.source_portal:
         criteria.append(
