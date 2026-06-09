@@ -85,9 +85,12 @@ export function useFilterParams() {
         page: next.page ?? 1,
       });
       const qs = query.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const newUrl = qs ? `${pathname}?${qs}` : pathname;
+
+      // Use shallow routing to prevent server-side re-request and loading.tsx flashes
+      window.history.replaceState(null, "", newUrl);
     },
-    [pathname, router]
+    [pathname]
   );
 
   useEffect(() => {
