@@ -169,7 +169,7 @@ def clean_test_db_rows() -> Generator[None, None, None]:
         session.exec(
             text(
                 "DELETE FROM real_estate.saved_search_matches "
-                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' OR property_id LIKE '#BLU-INK%' "
                 "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
                 "OR saved_search_alert_id IN ("
                 "   SELECT id FROM real_estate.saved_search_alerts "
@@ -181,11 +181,11 @@ def clean_test_db_rows() -> Generator[None, None, None]:
         session.exec(
             text(
                 "DELETE FROM real_estate.legal_contracts "
-                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' OR property_id LIKE '#BLU-INK%' "
                 "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
                 "OR transaction_session_id IN ("
                 "   SELECT id FROM real_estate.transaction_sessions "
-                "   WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "   WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' OR property_id LIKE '#BLU-INK%' "
                 "      OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%') "
                 ")"
             )
@@ -194,7 +194,7 @@ def clean_test_db_rows() -> Generator[None, None, None]:
         session.exec(
             text(
                 "DELETE FROM real_estate.transaction_sessions "
-                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' "
+                "WHERE property_id LIKE '#BLU-TEST%' OR property_id LIKE '#BLU-WS%' OR property_id LIKE '#BLU-INK%' "
                 "OR property_id IN (SELECT id FROM real_estate.properties WHERE remote_id LIKE 'test-remote-%')"
             )
         )
@@ -213,7 +213,7 @@ def clean_test_db_rows() -> Generator[None, None, None]:
         session.exec(
             text(
                 "DELETE FROM real_estate.properties "
-                "WHERE id LIKE '#BLU-TEST%' OR id LIKE '#BLU-WS%' "
+                "WHERE id LIKE '#BLU-TEST%' OR id LIKE '#BLU-WS%' OR id LIKE '#BLU-INK%' "
                 "OR remote_id = '222598' OR remote_id LIKE 'test-remote-%'"
             )
         )
