@@ -43,11 +43,11 @@ export function TransactionSigningPanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const txn = contract.transaction;
   const isLocked =
-    txn.is_locked ?? (txn.status === "GENERATED" || txn.status === "EXECUTED");
+    txn?.is_locked ?? (txn?.status === "GENERATED" || txn?.status === "EXECUTED" || false);
   const hasPdf = contract.has_secure_pdf;
-  const buyerSigned = Boolean(txn.buyer_signed_at);
-  const sellerSigned = Boolean(txn.seller_signed_at);
-  const isExecuted = txn.status === "EXECUTED";
+  const buyerSigned = Boolean(txn?.buyer_signed_at);
+  const sellerSigned = Boolean(txn?.seller_signed_at);
+  const isExecuted = txn?.status === "EXECUTED";
   const hasDocusignEnvelope = Boolean(contract.docusign_envelope_id);
 
   const [showDocuSignCeremony, setShowDocuSignCeremony] = useState(false);
@@ -111,19 +111,19 @@ export function TransactionSigningPanel({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <LockedField label="Comprador" value={txn.buyer_name} locked={isLocked} />
-            <LockedField label="Cédula comprador" value={txn.buyer_id_doc} locked={isLocked} />
-            <LockedField label="Vendedor" value={txn.seller_name} locked={isLocked} />
-            <LockedField label="Cédula vendedor" value={txn.seller_id_doc} locked={isLocked} />
+            <LockedField label="Comprador" value={txn?.buyer_name ?? ""} locked={isLocked} />
+            <LockedField label="Cédula comprador" value={txn?.buyer_id_doc ?? ""} locked={isLocked} />
+            <LockedField label="Vendedor" value={txn?.seller_name ?? ""} locked={isLocked} />
+            <LockedField label="Cédula vendedor" value={txn?.seller_id_doc ?? ""} locked={isLocked} />
             <LockedField
               label="Precio pactado"
-              value={`${txn.agreed_price.toLocaleString("en-US")} ${txn.currency}`}
+              value={txn ? `${txn.agreed_price.toLocaleString("en-US")} ${txn.currency}` : ""}
               locked={isLocked}
             />
             <div className="space-y-2">
               <Label>Estado</Label>
               <Badge variant={isExecuted ? "default" : "secondary"} className="w-fit">
-                {txn.status}
+                {txn?.status ?? "DRAFT"}
               </Badge>
               {contract.docusign_status ? (
                 <p className="text-xs text-muted-foreground">
@@ -143,7 +143,7 @@ export function TransactionSigningPanel({
             <Button
               type="button"
               onClick={() => pdfMutation.mutate()}
-              disabled={pdfMutation.isPending || txn.status !== "GENERATED"}
+              disabled={pdfMutation.isPending || txn?.status !== "GENERATED"}
             >
               <FileCheck className="mr-2 h-4 w-4" />
               {pdfMutation.isPending ? "Generando PDF…" : "Generar PDF seguro"}

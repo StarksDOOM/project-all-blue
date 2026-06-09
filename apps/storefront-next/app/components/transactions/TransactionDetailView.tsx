@@ -86,9 +86,9 @@ export function TransactionDetailView({ transactionId }: TransactionDetailViewPr
           <ContractMarkdownPreview
             title={data.property.title}
             remoteId={data.property.remote_id}
-            buyerName={data.transaction.buyer_name}
-            sellerName={data.transaction.seller_name}
-            status={data.transaction.status}
+            buyerName={data.transaction?.buyer_name ?? ""}
+            sellerName={data.transaction?.seller_name ?? ""}
+            status={data.transaction?.status ?? "DRAFT"}
             documentBody={data.document_body}
           />
         </>

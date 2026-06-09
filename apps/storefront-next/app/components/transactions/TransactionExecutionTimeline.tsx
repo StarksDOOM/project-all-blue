@@ -25,7 +25,7 @@ export function TransactionExecutionTimeline({
   contract,
 }: TransactionExecutionTimelineProps) {
   const txn = contract.transaction;
-  const isExecuted = txn.status === "EXECUTED";
+  const isExecuted = txn?.status === "EXECUTED";
   const hasPdf = Boolean(contract.has_secure_pdf);
   const hasEnvelope = Boolean(contract.docusign_envelope_id);
 
@@ -41,7 +41,7 @@ export function TransactionExecutionTimeline({
       id: "pdf",
       label: "PDF Sealed",
       description: hasPdf ? "Hash SHA-256 registrado" : "Pendiente de generación",
-      state: hasPdf ? "complete" : txn.status === "GENERATED" ? "active" : "pending",
+      state: hasPdf ? "complete" : txn?.status === "GENERATED" ? "active" : "pending",
       icon: <Lock className="h-4 w-4" />,
     },
     {
@@ -77,7 +77,7 @@ export function TransactionExecutionTimeline({
             Certificado
           </Badge>
         ) : (
-          <Badge variant="secondary">{txn.status}</Badge>
+          <Badge variant="secondary">{txn?.status ?? "DRAFT"}</Badge>
         )}
       </div>
       <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

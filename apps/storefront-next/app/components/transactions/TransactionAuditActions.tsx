@@ -16,7 +16,7 @@ export function TransactionAuditActions({
   contract,
   transactionId,
 }: TransactionAuditActionsProps) {
-  const isExecuted = contract.transaction.status === "EXECUTED";
+  const isExecuted = contract.transaction?.status === "EXECUTED";
 
   if (!isExecuted) {
     return null;
