@@ -67,3 +67,35 @@ class LeadCaptureOut(BaseModel):
     """Response returned upon successful lead capture registration."""
 
     id: str = Field(..., description="UUID of the captured lead")
+
+
+class LeadCaptureRow(BaseModel):
+    """Full serialized representation of a LeadCapture record for the CRM feed.
+
+    Used by GET /api/v1/leads to expose individual lead rows to the
+    internal sales team dashboard.
+    """
+
+    id: str
+    email: str
+    location_slug: str
+    traffic_source: str
+    simulated_purchase_price: float
+    simulated_nightly_rate: float
+    simulated_occupancy: float
+    simulated_maintenance: float
+    created_at: str = Field(description="ISO-8601 UTC timestamp")
+
+    model_config = {"from_attributes": True}
+
+
+class LeadCaptureListResponse(BaseModel):
+    """Paginated list response for the internal CRM leads feed.
+
+    Wraps a list of LeadCaptureRow records with pagination metadata.
+    """
+
+    data: list[LeadCaptureRow]
+    total: int
+    skip: int
+    limit: int
