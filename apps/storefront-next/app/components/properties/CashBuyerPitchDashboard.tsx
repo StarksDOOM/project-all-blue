@@ -184,7 +184,7 @@ export function CashBuyerPitchDashboard({
   // STR assumption state (hydrated from recommended_str_assumptions)
   const [nightlyRate, setNightlyRate] = useState(rec?.nightly_rate ?? 120);
   const [occupancy, setOccupancy] = useState(rec ? Math.round(rec.occupancy_pct * 100) : 40); // stored as 0-100 for slider UX
-  const [monthlyMaintenance, setMonthlyMaintenance] = useState(rec?.monthly_maintenance ?? 150);
+  const [monthlyMaintenance, setMonthlyMaintenance] = useState(rec?.monthly_maintenance ?? 300);
 
   // LTR assumption state
   const [ltrRent, setLtrRent] = useState(1200);
@@ -217,14 +217,14 @@ export function CashBuyerPitchDashboard({
   const [debouncedParams, setDebouncedParams] = useState({
     nightly_rate: rec?.nightly_rate ?? 120,
     occupancy_pct: rec?.occupancy_pct ?? 0.40,
-    monthly_maintenance: rec?.monthly_maintenance ?? 150,
+    monthly_maintenance: rec?.monthly_maintenance ?? 300,
   });
 
   const [debouncedLtrParams, setDebouncedLtrParams] = useState({
     monthly_rent: 1200,
     ltr_vacancy_rate: 0.05,
     ltr_pm_fee_pct: 0.10,
-    monthly_maintenance: 150,
+    monthly_maintenance: 300,
   });
 
   // Debounce STR param updates (300ms)
