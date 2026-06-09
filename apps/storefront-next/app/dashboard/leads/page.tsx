@@ -3,20 +3,28 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, RefreshCw, Landmark, Users } from "lucide-react";
+import { ArrowLeft, RefreshCw, Landmark, Users, ExternalLink, Copy, Check, BarChart3 } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { leadKeys } from "@/lib/query-keys";
 import { LeadsListResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { LeadsDataGrid } from "@/components/leads/LeadsDataGrid";
+
+const LEAD_MAGNET_CONFIGS = [
+  { slug: "punta-cana", name: "Punta Cana", adr: 169, occ: 0.45 },
+  { slug: "las-terrenas", name: "Las Terrenas", adr: 234, occ: 0.40 },
+  { slug: "santo-domingo", name: "Santo Domingo", adr: 80, occ: 0.40 },
+];
 
 export default function LeadsDashboardPage() {
   const router = useRouter();
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
   
   const pageSize = 25; // 25 leads per page
   const skip = (currentPage - 1) * pageSize;
@@ -56,6 +64,22 @@ export default function LeadsDashboardPage() {
     enabled: isAuthenticated && (userRole === "agent" || userRole === "admin"),
     staleTime: 30_000,
   });
+
+  const getLeadCountForSlug = (slug: string) => {
+    if (!data?.data) return 0;
+    // Note: since the list is paginated, to get a global count we could use global endpoint,
+    // but counting within the loaded page or showing "captured leads" is a helpful snapshot.
+    // In our case, total count per slug might be filtered locally or we can state that it reflects the current view.
+    return data.data.filter((lead) => lead.location_slug === slug).length;
+  };
+
+  const handleCopyLink = (slug: string) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${origin}/invest/${slug}?src=agent-share`;
+    navigator.clipboard.writeText(url);
+    setCopiedSlug(slug);
+    setTimeout(() => setCopiedSlug(null), 2000);
+  };
 
   // Authorization check screen
   if (isAuthenticated && userRole !== "agent" && userRole !== "admin") {
@@ -119,6 +143,75 @@ export default function LeadsDashboardPage() {
           </div>
         </div>
 
+        {/* Lead Magnet Directories Section */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <span>Directorio de Lead Magnets Activos</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {LEAD_MAGNET_CONFIGS.map((config) => {
+              const count = getLeadCountForSlug(config.slug);
+              return (
+                <Card key={config.slug} className="border border-border bg-card shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-base font-bold text-foreground">{config.name}</CardTitle>
+                        <CardDescription className="text-xs">/invest/{config.slug}</CardDescription>
+                      </div>
+                      <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 text-[10px] font-semibold">
+                        {count} leads (pág)
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex justify-between">
+                        <span>Configured ADR:</span>
+                        <span className="font-semibold text-foreground">${config.adr}/n</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Configured Occ:</span>
+                        <span className="font-semibold text-foreground">{config.occ * 100}%</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => window.open(`/invest/${config.slug}`, "_blank")}
+                        className="flex-1 text-[11px] h-7 px-2 hover:bg-muted"
+                      >
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Preview
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        onClick={() => handleCopyLink(config.slug)}
+                        className="flex-1 text-[11px] h-7 px-2 hover:bg-muted"
+                      >
+                        {copiedSlug === config.slug ? (
+                          <>
+                            <Check className="h-3 w-3 mr-1 text-emerald-500" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copy Link
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Content Area */}
         {isLoading ? (
           <Card className="border-none shadow-md">
@@ -158,13 +251,19 @@ export default function LeadsDashboardPage() {
             </CardContent>
           </Card>
         ) : (
-          <LeadsDataGrid
-            leads={data.data}
-            totalCount={data.total}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={(p: number) => setCurrentPage(p)}
-          />
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <span>Prospectos Registrados</span>
+            </h2>
+            <LeadsDataGrid
+              leads={data.data}
+              totalCount={data.total}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={(p) => setCurrentPage(p)}
+            />
+          </div>
         )}
       </div>
     </main>
