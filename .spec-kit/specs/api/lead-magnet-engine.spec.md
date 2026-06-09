@@ -1,6 +1,6 @@
 # Spec: Multi-Source Lead Magnet Engine
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.7  
 **Branch:** `feat/stream-6-phase-1.7-lead-magnet-engine` ← `develop`  
 **Apps:** `apps/api-fastapi/` | `apps/storefront-next/`  
