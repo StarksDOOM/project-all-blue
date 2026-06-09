@@ -3,7 +3,14 @@
 > Local `AGENTS.md` at repo root is gitignored for machine-specific overrides. **This file is the team canonical copy** — keep it in sync when agent rules change.
 
 > [!CAUTION]
-> **CRITICAL PRE-FLIGHT**: Before coding, read `memories/REGRESSIONS.md` when present. Identify or create the `.spec-kit/` spec for the active **STREAM X PHASE X.X** (see `.spec-kit/README.md`).
+> **CRITICAL PRE-FLIGHT**: BEFORE making any changes, running any terminal commands, or writing code, the Agent MUST open and read `memories/REGRESSIONS.md` in full to ensure no regressions are introduced. Identify or create the `.spec-kit/` spec for the active **STREAM X PHASE X.X** (see `.spec-kit/README.md`).
+
+## Regression Pre-Flight Check (ZERO-TOLERANCE)
+
+Before proposing any implementation plan, making any code modifications, or running any commands in this workspace, the Agent MUST:
+1. Open and read `memories/REGRESSIONS.md` in full.
+2. Confirm that the planned implementation or verification command does not conflict with or regress any of the documented environment traps, caching conflicts, or routing behaviors listed in the regression log.
+3. This is a mandatory zero-tolerance gate for all active streams and bug-fix tasks.
 
 ## Spec-Kit (ZERO-TOLERANCE — every feature)
 

@@ -55,6 +55,8 @@ Run tests before commits:
 
 Agents and contributors must follow [engineering directives](docs/development/engineering-directives.md) (OWASP-aligned development, reviews, no secrets in git).
 
+**CRITICAL PRE-FLIGHT FOR AGENTS**: Before making any changes, proposing plans, running commands, or writing code, all agents MUST open and read [REGRESSIONS.md](file:///c:/Users/Leo%20Fulgencio/Projects/project-all-blue/memories/REGRESSIONS.md) in full to prevent environment, cache, or routing regressions.
+
 Root `AGENTS.md` may exist locally for assistants; canonical tracked policy is under `docs/development/`.
 
 ---

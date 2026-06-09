@@ -20,7 +20,13 @@ When work touches architecture spanning multiple apps, docs, or schemas, **check
 
 Until then, stay on CRG.
 
-## Regression-Free Fixes (agent behavior)
+## Regression-Free Fixes & Pre-Flight Check (agent behavior)
+
+> [!CAUTION]
+> **CRITICAL PRE-FLIGHT**: BEFORE making any changes, proposing implementation plans, running terminal commands, or writing code, the Agent MUST:
+> 1. Open and read `memories/REGRESSIONS.md` in full.
+> 2. Confirm that the planned changes or verification commands do not conflict with or regress the documented environment traps, caching conflicts, or routing behaviors listed in the regression log.
+> This is a mandatory zero-tolerance pre-flight gate.
 
 See root `Agents.md` § "Regression-Free Fixes (ZERO-TOLERANCE)" and the committed `agent-operating-manual.md` for the full rule.
 
