@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
@@ -46,14 +46,21 @@ export function useFilterParams() {
     agency: appliedFilters.agency,
   });
 
+  const lastSubmittedFingerprintRef = useRef<string>(fingerprint);
+
   useEffect(() => {
+    // If the URL updated to match our last submitted filters, skip updating draft
+    if (fingerprint === lastSubmittedFingerprintRef.current) return;
+
     setDraft({
       keyword: appliedFilters.keyword,
       price_min: appliedFilters.price_min,
       price_max: appliedFilters.price_max,
       agency: appliedFilters.agency,
     });
-  }, [fingerprint]);
+
+    lastSubmittedFingerprintRef.current = fingerprint;
+  }, [fingerprint, appliedFilters]);
 
   const debouncedDraft = useDebouncedValue(draft, 300);
 
@@ -65,6 +72,13 @@ export function useFilterParams() {
         page: next.page ?? 1,
       });
       const qs = query.toString();
+
+      // Track the fingerprint of what we just pushed to the URL to prevent sync overwrites
+      lastSubmittedFingerprintRef.current = filtersFingerprint({
+        ...DEFAULT_PROPERTY_FILTERS,
+        ...next,
+      });
+
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
     [pathname, router]
