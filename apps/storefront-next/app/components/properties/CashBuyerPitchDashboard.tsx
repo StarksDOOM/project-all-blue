@@ -139,17 +139,32 @@ export function CashBuyerPitchDashboard({
   propertyBluId,
   wholesaleData,
 }: CashBuyerPitchDashboardProps) {
-  // STR assumption state
-  const [nightlyRate, setNightlyRate] = useState(150);
-  const [occupancy, setOccupancy] = useState(70); // stored as 0-100 for slider UX
-  const [monthlyMaintenance, setMonthlyMaintenance] = useState(0);
+  const rec = wholesaleData?.recommended_str_assumptions;
+
+  // STR assumption state (hydrated from recommended_str_assumptions)
+  const [nightlyRate, setNightlyRate] = useState(rec?.nightly_rate ?? 120);
+  const [occupancy, setOccupancy] = useState(rec ? Math.round(rec.occupancy_pct * 100) : 40); // stored as 0-100 for slider UX
+  const [monthlyMaintenance, setMonthlyMaintenance] = useState(rec?.monthly_maintenance ?? 150);
+
+  const [hasHydrated, setHasHydrated] = useState(!!rec);
+
+  // Sync recommended defaults when they load asynchronously
+  useEffect(() => {
+    const freshRec = wholesaleData?.recommended_str_assumptions;
+    if (freshRec && !hasHydrated) {
+      setNightlyRate(freshRec.nightly_rate);
+      setOccupancy(Math.round(freshRec.occupancy_pct * 100));
+      setMonthlyMaintenance(freshRec.monthly_maintenance);
+      setHasHydrated(true);
+    }
+  }, [wholesaleData, hasHydrated]);
 
   // Debounce timer ref
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedParams, setDebouncedParams] = useState({
-    nightly_rate: 150,
-    occupancy_pct: 0.7,
-    monthly_maintenance: 0,
+    nightly_rate: rec?.nightly_rate ?? 120,
+    occupancy_pct: rec?.occupancy_pct ?? 0.40,
+    monthly_maintenance: rec?.monthly_maintenance ?? 150,
   });
 
   // Debounce param updates (300ms)
