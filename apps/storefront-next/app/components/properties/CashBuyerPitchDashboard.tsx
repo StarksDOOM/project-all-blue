@@ -145,6 +145,16 @@ export function CashBuyerPitchDashboard({
 }: CashBuyerPitchDashboardProps) {
   const rec = wholesaleData?.recommended_str_assumptions;
 
+  // Lead Magnet lock state (only active when locationSlug is present)
+  const [isLocked, setIsLocked] = useState(() => {
+    if (typeof window === "undefined" || !locationSlug) return false;
+    return !window.sessionStorage.getItem("lead_magnet_unlocked");
+  });
+
+  const [email, setEmail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
   // STR assumption state (hydrated from recommended_str_assumptions)
   const [nightlyRate, setNightlyRate] = useState(rec?.nightly_rate ?? 120);
   const [occupancy, setOccupancy] = useState(rec ? Math.round(rec.occupancy_pct * 100) : 40); // stored as 0-100 for slider UX
@@ -206,6 +216,45 @@ export function CashBuyerPitchDashboard({
       staleTime: 60_000,
       retry: false,
     });
+
+  const handleUnlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    const emailClean = email.trim();
+    if (!emailClean) {
+      setErrorMsg("Please enter a valid email address.");
+      return;
+    }
+
+    const emailPattern = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+    if (!emailPattern.test(emailClean)) {
+      setErrorMsg("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await api.captureLead({
+        email: emailClean,
+        location_slug: locationSlug || "unknown",
+        traffic_source: trafficSource || "organic",
+        simulated_purchase_price: wholesaleData?.pitch_price ?? 0,
+        simulated_nightly_rate: nightlyRate,
+        simulated_occupancy: occupancy / 100,
+        simulated_maintenance: monthlyMaintenance,
+      });
+
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("lead_magnet_unlocked", "true");
+      }
+      setIsLocked(false);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to capture lead. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!wholesaleData) return null;
 
@@ -322,11 +371,12 @@ export function CashBuyerPitchDashboard({
             </div>
 
             {/* Row 3: Projections */}
-            <div>
+            <div className="relative overflow-hidden rounded-xl bg-slate-800/30 p-4 ring-1 ring-slate-700/20">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
                 Net Profit Projections
               </p>
-              <div className="grid gap-3 sm:grid-cols-3">
+              
+              <div className={`grid gap-3 sm:grid-cols-3 transition-all duration-300 ${isLocked ? "blur-md select-none pointer-events-none" : ""}`}>
                 <MetricCard
                   label="6 Months"
                   value={formatUSD(strData!.str_projection_6mo!)}
@@ -343,6 +393,38 @@ export function CashBuyerPitchDashboard({
                   accent="green"
                 />
               </div>
+
+              {isLocked && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900/90 p-4 text-center">
+                  <p className="mb-1 text-[10px] font-bold text-blue-400 uppercase tracking-widest">
+                    🔒 Gated Projections
+                  </p>
+                  <h4 className="text-xs font-bold text-white mb-3">
+                    Unlock Full ROI Projections & PDF Prospectus
+                  </h4>
+                  <form onSubmit={handleUnlock} className="flex w-full max-w-sm flex-col gap-2 sm:flex-row">
+                    <input
+                      type="email"
+                      required
+                      placeholder="Enter your email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isSubmitting}
+                      className="flex-1 rounded bg-slate-800 px-3 py-1.5 text-xs text-white placeholder-slate-500 outline-none ring-1 ring-slate-700 focus:ring-blue-500 focus:bg-slate-700/90"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="rounded bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-1.5 text-xs font-bold text-white hover:from-blue-500 hover:to-indigo-500 disabled:opacity-50 flex items-center justify-center gap-1 transition-all"
+                    >
+                      {isSubmitting ? "Unlocking..." : "Unlock"}
+                    </button>
+                  </form>
+                  {errorMsg && (
+                    <p className="mt-2 text-[10px] text-rose-400 font-mono">{errorMsg}</p>
+                  )}
+                </div>
+              )}
             </div>
           </>
         ) : (
