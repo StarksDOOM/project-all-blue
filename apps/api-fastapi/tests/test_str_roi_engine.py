@@ -328,3 +328,8 @@ class TestStrDefaultPredictor:
 
         res2 = StrDefaultPredictor.predict_defaults(-5.0, "Punta Cana")
         assert res2["monthly_maintenance"] == 150.0
+
+    def test_predictor_capped_maintenance(self) -> None:
+        """Size * 2.50 exceeding $400 is capped at $400."""
+        res = StrDefaultPredictor.predict_defaults(200.0, "La Altagracia", "Punta Cana")
+        assert res["monthly_maintenance"] == 400.0
