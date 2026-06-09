@@ -351,3 +351,7 @@ class SavedSearchMatch(SQLModel, table=True):
     sent_at: Optional[datetime] = Field(default=None, nullable=True)
     retry_count: int = Field(default=0)
     error_message: Optional[str] = Field(default=None, nullable=True)
+
+
+# Expose sub-models to package namespace for metadata registration
+from .lead import LeadCapture

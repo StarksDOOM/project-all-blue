@@ -17,6 +17,8 @@ import {
   ContractGenerateResponse,
   DashboardContract,
   WholesaleDealMetrics,
+  LeadCapturePayload,
+  LeadCaptureResponse,
 } from "./types";
 
 /**
@@ -706,6 +708,20 @@ export const api = {
     const response = await fetch(url, { method: "GET", headers, cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Wholesale analytics failed: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  captureLead: async (payload: LeadCapturePayload): Promise<LeadCaptureResponse> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const url = `${resolveApiBaseUrl()}/api/v1/leads/capture`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`Lead capture failed: ${response.statusText}`);
     }
     return response.json();
   },
