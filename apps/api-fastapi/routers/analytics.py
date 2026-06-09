@@ -66,6 +66,24 @@ async def get_wholesale_analytics(
     monthly_maintenance: float | None = Query(
         None, ge=0, description="Monthly maintenance dues in USD"
     ),
+    monthly_rent_per_sqm: float | None = Query(
+        None, ge=0, description="Monthly commercial rent per square meter in USD"
+    ),
+    comm_vacancy_rate: float | None = Query(
+        None, ge=0, le=1.0, description="Commercial vacancy rate (0.0-1.0)"
+    ),
+    annual_taxes_insurance: float | None = Query(
+        None, ge=0, description="Expected annual taxes and insurance in USD"
+    ),
+    monthly_rent: float | None = Query(
+        None, ge=0, description="Monthly LTR rent in USD"
+    ),
+    ltr_vacancy_rate: float | None = Query(
+        None, ge=0, le=1.0, description="LTR vacancy rate (0.0-1.0)"
+    ),
+    ltr_pm_fee_pct: float | None = Query(
+        None, ge=0, le=1.0, description="LTR property management fee percentage (0.0-1.0)"
+    ),
     session: Session = Depends(get_db_session),
     # _current_user: UserCredentials = Depends(_analytics_checker),  # DISABLED: Bypassed for local QA (no login page yet)
 ) -> WholesaleDealMetrics:
@@ -80,6 +98,8 @@ async def get_wholesale_analytics(
         (STREAM 6 PHASE 1.6): monthly gross/net, annual NOI, Cash-on-Cash
         return percentage, and 6-month/1-year/3-year net profit projections.
 
+        When LTR or Commercial parameters are supplied, also returns Cap Rate metrics.
+
     Parameters:
         property_id : str
             BLU database ID of the target ``PropertyListing`` (path parameter).
@@ -90,6 +110,18 @@ async def get_wholesale_analytics(
             when nightly_rate is provided).
         monthly_maintenance : float | None
             Monthly maintenance dues in USD (query param, optional; defaults to 0.0).
+        monthly_rent_per_sqm : float | None
+            Monthly commercial rent per square meter.
+        comm_vacancy_rate : float | None
+            Expected vacancy rate for commercial.
+        annual_taxes_insurance : float | None
+            Expected annual taxes and insurance for commercial.
+        monthly_rent : float | None
+            Monthly LTR residential rent.
+        ltr_vacancy_rate : float | None
+            Expected vacancy rate for LTR.
+        ltr_pm_fee_pct : float | None
+            Property management fee percentage for LTR.
         session : Session
             Request-scoped SQLModel session injected by ``get_session``.
         _current_user : UserCredentials
@@ -99,7 +131,7 @@ async def get_wholesale_analytics(
     Returns:
         WholesaleDealMetrics
             JSON payload containing all computed wholesale metrics and optional
-            STR yield fields.
+            yield fields.
 
     Raises:
         HTTPException(403)
@@ -120,4 +152,11 @@ async def get_wholesale_analytics(
         nightly_rate=nightly_rate,
         occupancy_pct=occupancy_pct,
         monthly_maintenance=monthly_maintenance,
+        monthly_rent_per_sqm=monthly_rent_per_sqm,
+        comm_vacancy_rate=comm_vacancy_rate,
+        annual_taxes_insurance=annual_taxes_insurance,
+        monthly_rent=monthly_rent,
+        ltr_vacancy_rate=ltr_vacancy_rate,
+        ltr_pm_fee_pct=ltr_pm_fee_pct,
     )
+

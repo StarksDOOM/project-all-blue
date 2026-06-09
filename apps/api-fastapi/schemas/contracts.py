@@ -70,6 +70,23 @@ class DashboardContractResponse(BaseModel):
     property: Optional[DashboardContractProperty] = Field(None, description="Associated property details")
 
 
+class CommercialYieldMetrics(BaseModel):
+    """Underwriting metrics for commercial assets using Cap Rates."""
+    annual_gross_rent: float = Field(..., description="Annual gross rent (USD)")
+    effective_gross_income: float = Field(..., description="Effective Gross Income (EGI) after vacancy (USD)")
+    annual_noi: float = Field(..., description="Annual Net Operating Income (USD)")
+    cap_rate_pct: float = Field(..., description="Capitalisation Rate (%)")
+
+
+class LtrYieldMetrics(BaseModel):
+    """Underwriting metrics for long-term rental residential assets using Cap Rates."""
+    annual_gross_rent: float = Field(..., description="Annual gross rent (USD)")
+    effective_gross_rent: float = Field(..., description="Effective gross rent after vacancy (USD)")
+    operating_expenses: float = Field(..., description="Sum of annual PM fees and maintenance (USD)")
+    annual_noi: float = Field(..., description="Annual Net Operating Income (USD)")
+    cap_rate_pct: float = Field(..., description="Capitalisation Rate (%)")
+
+
 class WholesaleDealMetrics(BaseModel):
     """
     Response schema for the wholesale deal analytics endpoint.
@@ -141,4 +158,11 @@ class WholesaleDealMetrics(BaseModel):
     )
     recommended_str_assumptions: dict[str, float] = Field(
         ..., description="Recommended initial defaults for nightly_rate, occupancy_pct, and monthly_maintenance"
-    )
+    )
+    commercial_metrics: Optional[CommercialYieldMetrics] = Field(
+        None, description="Commercial Cap Rate underwriting metrics (populated only when commercial parameters are supplied)"
+    )
+    ltr_metrics: Optional[LtrYieldMetrics] = Field(
+        None, description="Long-Term Rental (LTR) Cap Rate underwriting metrics (populated only when LTR parameters are supplied)"
+    )
+
