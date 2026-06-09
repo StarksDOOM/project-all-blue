@@ -126,6 +126,7 @@ def generate_legal_contract(
 
     contract = LegalContract(
         transaction_session_id=transaction.id,
+        property_id=transaction.property_id,
         file_path=str(file_path),
         storage_url=None,
         document_body=document_body,
@@ -209,7 +210,7 @@ def transaction_to_dict(
 
 def contract_to_dict(
     contract: LegalContract,
-    transaction: TransactionSession,
+    transaction: TransactionSession | None,
     property_listing: PropertyListing,
 ) -> dict[str, Any]:
     return {
@@ -227,7 +228,7 @@ def contract_to_dict(
         "docusign_status": contract.docusign_status,
         "has_audit_certificate": bool(contract.audit_certificate_path),
         "audit_certificate_path": contract.audit_certificate_path,
-        "transaction": transaction_to_dict(transaction, property_listing),
+        "transaction": transaction_to_dict(transaction, property_listing) if transaction is not None else None,
         "property": {
             "id": property_listing.id,
             "remote_id": property_listing.remote_id,
@@ -239,4 +240,5 @@ def contract_to_dict(
             "square_meters": property_listing.square_meters,
             "sqm_land": property_listing.sqm_land,
         },
+        "signing_url": contract.signing_url,
     }

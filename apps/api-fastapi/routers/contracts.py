@@ -14,8 +14,10 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Header, BackgroundTasks
 from sqlmodel import Session, select
 
+from typing import Optional
 from database import get_db_session
 from models import LegalContract, PropertyListing
+from schemas.transactions import LegalContractResponse
 from schemas.contracts import (
     ContractInitializeRequest,
     ContractResponse,
@@ -299,3 +301,46 @@ def list_contracts(
             )
         )
     return response_items
+
+
+@router.get("/property/{property_id}", response_model=Optional[LegalContractResponse])
+def get_contract_by_property(
+    property_id: str,
+    session: Session = Depends(get_db_session),
+) -> dict | None:
+    """
+    Retrieve the latest legal contract generated for a property.
+    """
+    # 1. Fetch the latest LegalContract record for the property
+    statement = (
+        select(LegalContract)
+        .where(LegalContract.property_id == property_id)
+        .order_by(LegalContract.generated_at.desc())
+    )
+    contract = session.exec(statement).first()
+    if not contract:
+        return None
+
+    # 2. Resolve the property listing
+    property_listing = session.get(PropertyListing, property_id)
+    if not property_listing:
+        # Fallback query if id is actually remote_id
+        property_listing = session.exec(
+            select(PropertyListing).where(PropertyListing.remote_id == property_id)
+        ).first()
+
+    if not property_listing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property listing associated with contract not found",
+        )
+
+    # 3. Resolve the associated TransactionSession (if any)
+    transaction = None
+    if contract.transaction_session_id:
+        from models import TransactionSession
+        transaction = session.get(TransactionSession, contract.transaction_session_id)
+
+    # 4. Serialize to response dict
+    from services.transaction_service import contract_to_dict
+    return contract_to_dict(contract, transaction, property_listing)
