@@ -1,6 +1,6 @@
 # Spec: Airbnb ROI & Pitch Engine
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.6
 **Branch:** `feat/stream-6-phase-1.6-airbnb-roi-engine` ← `develop`
 **Apps:** `apps/api-fastapi/` | `apps/storefront-next/`

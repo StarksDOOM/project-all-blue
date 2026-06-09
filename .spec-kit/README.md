@@ -31,8 +31,8 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/transaction-ledger-dashboard.spec.md](specs/api/transaction-ledger-dashboard.spec.md) | STREAM 6 PHASE 1.2 | SHIPPED |
 | [api/wholesale-analytics-engine.spec.md](specs/api/wholesale-analytics-engine.spec.md) | STREAM 6 PHASE 1.3 | SHIPPED |
 | [api/docuseal-provider-swap.spec.md](specs/api/docuseal-provider-swap.spec.md) | STREAM 6 PHASE 1.5 | SHIPPED |
-| [api/airbnb-roi-engine.spec.md](specs/api/airbnb-roi-engine.spec.md) | STREAM 6 PHASE 1.6 | DRAFT |
-| [api/dynamic-str-pre-fills.spec.md](specs/api/dynamic-str-pre-fills.spec.md) | STREAM 6 PHASE 1.6.1 | DRAFT |
+| [api/airbnb-roi-engine.spec.md](specs/api/airbnb-roi-engine.spec.md) | STREAM 6 PHASE 1.6 | SHIPPED |
+| [api/dynamic-str-pre-fills.spec.md](specs/api/dynamic-str-pre-fills.spec.md) | STREAM 6 PHASE 1.6.1 | SHIPPED |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -63,8 +63,8 @@ STREAM 6 — Contract automation & signing
   PHASE 1.2  transaction-ledger-dashboard (protected backend service, GET /contracts route, Next.js table UI) [SHIPPED; baseline 15]
   PHASE 1.3  wholesale-analytics-engine (stateless WholesalePricingEngine, sector median EMV, role-gated Guía de Oferta UI) [SHIPPED; baseline 16]
   PHASE 1.5  docuseal-provider-swap (DocuSeal dispatcher, X-Docuseal-Signature validator, webhook endpoint) [SHIPPED; baseline 16]
-  PHASE 1.6  airbnb-roi-engine (STR yield calculator, NOI, Cash-on-Cash, interactive pitch dashboard) [DRAFT; baseline 16]
-  PHASE 1.6.1 dynamic-str-pre-fills (recommended_str_assumptions in API, client hydration, StrDefaultPredictor) [DRAFT; baseline 17]
+  PHASE 1.6  airbnb-roi-engine (STR yield calculator, NOI, Cash-on-Cash, interactive pitch dashboard) [SHIPPED; baseline 16]
+  PHASE 1.6.1 dynamic-str-pre-fills (recommended_str_assumptions in API, client hydration, StrDefaultPredictor) [SHIPPED; baseline 17]
 ```
 
 ## Developer tooling

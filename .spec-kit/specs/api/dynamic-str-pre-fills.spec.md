@@ -1,6 +1,6 @@
 # Spec: Dynamic STR Pre-fills
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.6.1
 **Branch:** `feat/stream-6-phase-1.6-airbnb-roi-engine` ← `develop`
 **Apps:** `apps/api-fastapi/` | `apps/storefront-next/`
