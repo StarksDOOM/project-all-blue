@@ -61,6 +61,13 @@ const CashBuyerPitchDashboard = dynamic(
     ),
   { ssr: false, loading: () => <Skeleton className="h-48 w-full rounded-lg" /> }
 );
+const CommercialYieldDashboard = dynamic(
+  () =>
+    import("@/components/properties/CommercialYieldDashboard").then(
+      (mod) => mod.CommercialYieldDashboard
+    ),
+  { ssr: false, loading: () => <Skeleton className="h-48 w-full rounded-lg" /> }
+);
 
 function formatBaths(value: number | null): string {
   if (value == null || value <= 0) return "—";
@@ -461,10 +468,18 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
               ) : null}
 
               {isAgentOrAdmin && property.business_type === "venta" ? (
-                <CashBuyerPitchDashboard
-                  propertyBluId={propertyBluId}
-                  wholesaleData={wholesaleData}
-                />
+                property.property_type === "COMMERCIAL" ? (
+                  <CommercialYieldDashboard
+                    propertyBluId={propertyBluId}
+                    wholesaleData={wholesaleData}
+                  />
+                ) : (
+                  <CashBuyerPitchDashboard
+                    propertyBluId={propertyBluId}
+                    wholesaleData={wholesaleData}
+                    propertyType={property.property_type}
+                  />
+                )
               ) : null}
             </div>
 

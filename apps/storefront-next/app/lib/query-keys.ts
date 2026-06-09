@@ -53,4 +53,37 @@ export const analyticsKeys = {
       occupancy_pct,
       monthly_maintenance,
     ] as const,
-};
+  wholesaleComm: (
+    propertyId: string,
+    monthly_rent_per_sqm: number,
+    comm_vacancy_rate: number,
+    annual_taxes_insurance: number
+  ) =>
+    [
+      "analytics",
+      "wholesale",
+      propertyId,
+      "commercial",
+      monthly_rent_per_sqm,
+      comm_vacancy_rate,
+      annual_taxes_insurance,
+    ] as const,
+  wholesaleLtr: (
+    propertyId: string,
+    monthly_rent: number,
+    ltr_vacancy_rate: number,
+    ltr_pm_fee_pct: number,
+    monthly_maintenance: number
+  ) =>
+    [
+      "analytics",
+      "wholesale",
+      propertyId,
+      "ltr",
+      monthly_rent,
+      ltr_vacancy_rate,
+      ltr_pm_fee_pct,
+      monthly_maintenance,
+    ] as const,
+};
+

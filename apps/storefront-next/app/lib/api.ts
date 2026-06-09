@@ -174,6 +174,8 @@ export function mapPropertyListing(row: PropertyListingApiRow): PropertyListing 
     source_portal: row.source_portal,
     is_active: row.is_active,
     scraped_at: new Date(row.last_modified).toISOString(),
+    listing_type: row.listing_type || "FOR_SALE",
+    property_type: row.property_type || "RESIDENTIAL",
   };
 }
 
@@ -686,7 +688,9 @@ export const api = {
 
   getWholesaleAnalytics: async (
     propertyId: string,
-    strParams?: { nightly_rate?: number; occupancy_pct?: number; monthly_maintenance?: number }
+    strParams?: { nightly_rate?: number; occupancy_pct?: number; monthly_maintenance?: number },
+    commParams?: { monthly_rent_per_sqm?: number; comm_vacancy_rate?: number; annual_taxes_insurance?: number },
+    ltrParams?: { monthly_rent?: number; ltr_vacancy_rate?: number; ltr_pm_fee_pct?: number; monthly_maintenance?: number }
   ): Promise<WholesaleDealMetrics> => {
     const token = getBearerToken();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -701,6 +705,29 @@ export const api = {
     }
     if (strParams?.monthly_maintenance != null) {
       search.set("monthly_maintenance", String(strParams.monthly_maintenance));
+    }
+
+    if (commParams?.monthly_rent_per_sqm != null) {
+      search.set("monthly_rent_per_sqm", String(commParams.monthly_rent_per_sqm));
+    }
+    if (commParams?.comm_vacancy_rate != null) {
+      search.set("comm_vacancy_rate", String(commParams.comm_vacancy_rate));
+    }
+    if (commParams?.annual_taxes_insurance != null) {
+      search.set("annual_taxes_insurance", String(commParams.annual_taxes_insurance));
+    }
+
+    if (ltrParams?.monthly_rent != null) {
+      search.set("monthly_rent", String(ltrParams.monthly_rent));
+    }
+    if (ltrParams?.ltr_vacancy_rate != null) {
+      search.set("ltr_vacancy_rate", String(ltrParams.ltr_vacancy_rate));
+    }
+    if (ltrParams?.ltr_pm_fee_pct != null) {
+      search.set("ltr_pm_fee_pct", String(ltrParams.ltr_pm_fee_pct));
+    }
+    if (ltrParams?.monthly_maintenance != null) {
+      search.set("monthly_maintenance", String(ltrParams.monthly_maintenance));
     }
 
     const query = search.toString();

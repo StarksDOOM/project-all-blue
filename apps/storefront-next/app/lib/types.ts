@@ -33,6 +33,8 @@ export interface PropertyListing {
   source_portal: string;
   is_active: boolean;
   scraped_at: string;
+  listing_type?: string;
+  property_type?: string;
 }
 
 /** Raw row returned by FastAPI /api/v1/properties (SQLModel serialization). */
@@ -66,6 +68,8 @@ export interface PropertyListingApiRow {
   deleted_at?: string | null;
   portal_refresh_failed?: boolean;
   portal_refresh_message?: string | null;
+  listing_type?: string;
+  property_type?: string;
 }
 
 export interface ScraperErrorLogRow {
@@ -289,6 +293,23 @@ export interface WholesaleDealMetrics {
   str_projection_1yr: number | null;
   str_projection_3yr: number | null;
   recommended_str_assumptions: StrAssumptions;
+  commercial_metrics: CommercialYieldMetrics | null;
+  ltr_metrics: LtrYieldMetrics | null;
+}
+
+export interface CommercialYieldMetrics {
+  annual_gross_rent: number;
+  effective_gross_income: number;
+  annual_noi: number;
+  cap_rate_pct: number;
+}
+
+export interface LtrYieldMetrics {
+  annual_gross_rent: number;
+  effective_gross_rent: number;
+  operating_expenses: number;
+  annual_noi: number;
+  cap_rate_pct: number;
 }
 
 /** STR assumption parameters for the Cash Buyer Pitch Dashboard. */

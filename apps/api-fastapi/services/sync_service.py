@@ -26,6 +26,7 @@ from scrapers.drivers.base_driver import BaseDriver
 from scrapers.driver_factory import DriverFactory
 from services.remax_detail_enrichment import enrich_remax_listings_batch
 from services.search_match_engine import evaluate_property_against_alerts
+from services.asset_classifier import AssetClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ _UPSERT_UPDATE_COLUMNS = (
     "agent_agency",
     "raw_description",
     "is_active",
+    "listing_type",
+    "property_type",
     "last_modified",
     "server_version",
 )
@@ -212,6 +215,8 @@ class IngestionOrchestrator:
 
         for i in range(0, len(listings), BULK_CHUNK_SIZE):
             chunk = listings[i : i + BULK_CHUNK_SIZE]
+            for listing in chunk:
+                AssetClassifier.classify_property_listing(listing)
             metrics = self._upsert_chunk(chunk)
             inserted_total += metrics["inserted"]
             updated_total += metrics["updated"]
@@ -324,6 +329,8 @@ class IngestionOrchestrator:
             "agent_agency": listing.agent_agency,
             "raw_description": listing.raw_description,
             "is_active": listing.is_active,
+            "listing_type": listing.listing_type or "FOR_SALE",
+            "property_type": listing.property_type or "RESIDENTIAL",
         }
 
     def _existing_remote_ids(self, source_portal: str, remote_ids: list[str]) -> set[str]:

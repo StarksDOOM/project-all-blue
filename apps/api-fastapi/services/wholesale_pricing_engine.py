@@ -43,7 +43,7 @@ from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from models import PropertyListing
-from schemas.contracts import WholesaleDealMetrics
+from schemas.contracts import WholesaleDealMetrics, CommercialYieldMetrics, LtrYieldMetrics
 from services.str_default_predictor import StrDefaultPredictor
 
 # ---------------------------------------------------------------------------
@@ -102,6 +102,12 @@ class WholesalePricingEngine:
         nightly_rate: float | None = None,
         occupancy_pct: float | None = None,
         monthly_maintenance: float | None = None,
+        monthly_rent_per_sqm: float | None = None,
+        comm_vacancy_rate: float | None = None,
+        annual_taxes_insurance: float | None = None,
+        monthly_rent: float | None = None,
+        ltr_vacancy_rate: float | None = None,
+        ltr_pm_fee_pct: float | None = None,
     ) -> WholesaleDealMetrics:
         """
         Compute wholesale deal metrics for the given property.
@@ -116,6 +122,9 @@ class WholesalePricingEngine:
             When ``nightly_rate`` is supplied, also computes STR yield metrics
             (STREAM 6 PHASE 1.6): monthly gross/net, annual NOI, Cash-on-Cash
             return percentage, and 6-month/1-year/3-year net profit projections.
+
+            When LTR or Commercial parameters are supplied, also computes corresponding
+            Cap Rate yield metrics (STREAM 6 PHASE 1.8).
 
         Parameters:
             property_id : str
@@ -132,6 +141,18 @@ class WholesalePricingEngine:
                 is provided but ``occupancy_pct`` is ``None``.
             monthly_maintenance : float | None
                 Monthly complex maintenance dues in USD.  Defaults to ``0.0``.
+            monthly_rent_per_sqm : float | None
+                Monthly commercial rent per square meter.
+            comm_vacancy_rate : float | None
+                Expected vacancy rate for commercial.
+            annual_taxes_insurance : float | None
+                Expected annual taxes and insurance for commercial.
+            monthly_rent : float | None
+                Monthly LTR residential rent.
+            ltr_vacancy_rate : float | None
+                Expected vacancy rate for LTR.
+            ltr_pm_fee_pct : float | None
+                Property management fee percentage for LTR.
 
         Returns:
             WholesaleDealMetrics
@@ -153,15 +174,14 @@ class WholesalePricingEngine:
             sector_listings, target.sector
         )
 
+        auto_emv = median_price_per_sqm * target.square_meters
+        mao = auto_emv * _DISCOUNT_RATIO
+        assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
+        pitch_price = mao + assignment_fee
+
         # Compute optional STR yield metrics when nightly_rate is provided
         str_kwargs: dict[str, float | None] = {}
         if nightly_rate is not None:
-            # Compute pitch_price first to feed into Cash-on-Cash
-            auto_emv = median_price_per_sqm * target.square_meters
-            mao = auto_emv * _DISCOUNT_RATIO
-            assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
-            pitch_price = mao + assignment_fee
-
             str_kwargs = self.calculate_str_metrics(
                 nightly_rate=nightly_rate,
                 occupancy_pct=occupancy_pct if occupancy_pct is not None else 0.70,
@@ -169,7 +189,62 @@ class WholesalePricingEngine:
                 pitch_price=pitch_price,
             )
 
-        return self._build_metrics(target, median_price_per_sqm, str_kwargs=str_kwargs)
+        # Compute Commercial Cap Rate if requested or if commercial listing
+        commercial_metrics = None
+        comm_v_rate = comm_vacancy_rate if comm_vacancy_rate is not None else 0.10
+        comm_tax_ins = annual_taxes_insurance if annual_taxes_insurance is not None else (pitch_price * 0.01)
+
+        if monthly_rent_per_sqm is not None:
+            commercial_metrics = self.calculate_commercial_metrics(
+                pitch_price=pitch_price,
+                size_sqm=target.square_meters,
+                monthly_rent_per_sqm=monthly_rent_per_sqm,
+                vacancy_rate=comm_v_rate,
+                annual_taxes_insurance=comm_tax_ins,
+            )
+        elif getattr(target, "property_type", "RESIDENTIAL") == "COMMERCIAL":
+            commercial_metrics = self.calculate_commercial_metrics(
+                pitch_price=pitch_price,
+                size_sqm=target.square_meters,
+                monthly_rent_per_sqm=15.0,
+                vacancy_rate=comm_v_rate,
+                annual_taxes_insurance=comm_tax_ins,
+            )
+
+        # Compute LTR Cap Rate if requested or if residential listing
+        ltr_metrics = None
+        ltr_v_rate = ltr_vacancy_rate if ltr_vacancy_rate is not None else 0.05
+        ltr_pm = ltr_pm_fee_pct if ltr_pm_fee_pct is not None else 0.10
+        ltr_maint = monthly_maintenance if monthly_maintenance is not None else 0.0
+
+        if monthly_rent is not None:
+            ltr_metrics = self.calculate_ltr_metrics(
+                pitch_price=pitch_price,
+                monthly_rent=monthly_rent,
+                vacancy_rate=ltr_v_rate,
+                pm_fee_pct=ltr_pm,
+                monthly_maintenance=ltr_maint,
+            )
+        elif getattr(target, "property_type", "RESIDENTIAL") == "RESIDENTIAL":
+            # Smart default rent: 8% yield of target purchase price
+            default_rent = round((target.price_usd * 0.08) / 12, 2)
+            if default_rent <= 0:
+                default_rent = 1200.0
+            ltr_metrics = self.calculate_ltr_metrics(
+                pitch_price=pitch_price,
+                monthly_rent=default_rent,
+                vacancy_rate=ltr_v_rate,
+                pm_fee_pct=ltr_pm,
+                monthly_maintenance=ltr_maint,
+            )
+
+        return self._build_metrics(
+            target,
+            median_price_per_sqm,
+            str_kwargs=str_kwargs,
+            commercial_metrics=commercial_metrics,
+            ltr_metrics=ltr_metrics,
+        )
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -354,12 +429,56 @@ class WholesalePricingEngine:
             "str_projection_3yr": round(monthly_net * 36, 2),
         }
 
+    def calculate_commercial_metrics(
+        self,
+        pitch_price: float,
+        size_sqm: float,
+        monthly_rent_per_sqm: float,
+        vacancy_rate: float = 0.10,
+        annual_taxes_insurance: float = 0.0,
+    ) -> CommercialYieldMetrics:
+        """Calculate commercial cap rate metrics."""
+        annual_gross = (size_sqm * monthly_rent_per_sqm) * 12
+        egi = annual_gross * (1 - vacancy_rate)
+        annual_noi = egi - annual_taxes_insurance
+        cap_rate = (annual_noi / pitch_price) * 100 if pitch_price > 0 else 0.0
+        return CommercialYieldMetrics(
+            annual_gross_rent=round(annual_gross, 2),
+            effective_gross_income=round(egi, 2),
+            annual_noi=round(annual_noi, 2),
+            cap_rate_pct=round(cap_rate, 2),
+        )
+
+    def calculate_ltr_metrics(
+        self,
+        pitch_price: float,
+        monthly_rent: float,
+        vacancy_rate: float = 0.05,
+        pm_fee_pct: float = 0.10,
+        monthly_maintenance: float = 0.0,
+    ) -> LtrYieldMetrics:
+        """Calculate LTR corporate lease cap rate metrics."""
+        annual_gross = monthly_rent * 12
+        egr = annual_gross * (1 - vacancy_rate)
+        operating_expenses = (annual_gross * pm_fee_pct) + (monthly_maintenance * 12)
+        annual_noi = egr - operating_expenses
+        cap_rate = (annual_noi / pitch_price) * 100 if pitch_price > 0 else 0.0
+        return LtrYieldMetrics(
+            annual_gross_rent=round(annual_gross, 2),
+            effective_gross_rent=round(egr, 2),
+            operating_expenses=round(operating_expenses, 2),
+            annual_noi=round(annual_noi, 2),
+            cap_rate_pct=round(cap_rate, 2),
+        )
+
     def _build_metrics(
         self,
         target: PropertyListing,
         median_price_per_sqm: float,
         *,
         str_kwargs: dict[str, float | None] | None = None,
+        commercial_metrics: CommercialYieldMetrics | None = None,
+        ltr_metrics: LtrYieldMetrics | None = None,
     ) -> WholesaleDealMetrics:
         """
         Apply spec-locked heuristics to produce the final deal metrics payload.
@@ -380,6 +499,10 @@ class WholesalePricingEngine:
                 ``_compute_median_price_per_sqm``).
             str_kwargs : dict[str, float | None] | None
                 Optional STR metric fields to include in the response.
+            commercial_metrics : CommercialYieldMetrics | None
+                Optional commercial cap rate metrics.
+            ltr_metrics : LtrYieldMetrics | None
+                Optional LTR cap rate metrics.
 
         Returns:
             WholesaleDealMetrics
@@ -408,5 +531,7 @@ class WholesalePricingEngine:
             assignment_fee=round(assignment_fee, 2),
             pitch_price=round(pitch_price, 2),
             recommended_str_assumptions=recommended,
+            commercial_metrics=commercial_metrics,
+            ltr_metrics=ltr_metrics,
             **(str_kwargs or {}),
         )

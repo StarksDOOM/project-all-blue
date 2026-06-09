@@ -284,6 +284,60 @@ class TestWholesalePricingEngineArithmetic:
         assert result.sector_median_price_per_sqm == pytest.approx(1_000.0, rel=1e-3)
         assert result.auto_emv == pytest.approx(120_000.0, rel=1e-3)
 
+    def test_commercial_cap_rate_calculation(self, db_session: Session) -> None:
+        """
+        Validate Commercial Cap Rate calculation.
+        """
+        sector = f"comm-sector-{secrets.token_hex(3)}"
+        target = _make_listing(db_session=db_session, sector=sector, price_usd=200_000.0, square_meters=100.0)
+        target.property_type = "COMMERCIAL"
+        db_session.add(target)
+        db_session.flush()
+
+        engine = WholesalePricingEngine()
+        # Test with explicit params
+        res = engine.calculate_deal_metrics(
+            property_id=target.id,
+            session=db_session,
+            monthly_rent_per_sqm=20.0,
+            comm_vacancy_rate=0.08,
+            annual_taxes_insurance=1500.0
+        )
+        assert res.commercial_metrics is not None
+        assert res.commercial_metrics.annual_gross_rent == 24000.0
+        assert res.commercial_metrics.effective_gross_income == 22080.0
+        assert res.commercial_metrics.annual_noi == 20580.0
+        expected_cap = (20580.0 / res.pitch_price) * 100
+        assert res.commercial_metrics.cap_rate_pct == pytest.approx(expected_cap, abs=1e-2)
+
+    def test_ltr_cap_rate_calculation(self, db_session: Session) -> None:
+        """
+        Validate Long-Term Rental (LTR) Cap Rate calculation.
+        """
+        sector = f"ltr-sector-{secrets.token_hex(3)}"
+        target = _make_listing(db_session=db_session, sector=sector, price_usd=200_000.0, square_meters=100.0)
+        target.property_type = "RESIDENTIAL"
+        db_session.add(target)
+        db_session.flush()
+
+        engine = WholesalePricingEngine()
+        # Test with explicit params
+        res = engine.calculate_deal_metrics(
+            property_id=target.id,
+            session=db_session,
+            monthly_rent=2500.0,
+            ltr_vacancy_rate=0.04,
+            ltr_pm_fee_pct=0.08,
+            monthly_maintenance=200.0
+        )
+        assert res.ltr_metrics is not None
+        assert res.ltr_metrics.annual_gross_rent == 30000.0
+        assert res.ltr_metrics.effective_gross_rent == 28800.0
+        assert res.ltr_metrics.operating_expenses == 4800.0
+        assert res.ltr_metrics.annual_noi == 24000.0
+        expected_cap = (24000.0 / res.pitch_price) * 100
+        assert res.ltr_metrics.cap_rate_pct == pytest.approx(expected_cap, abs=1e-2)
+
 
 # ===========================================================================
 # Route-level integration tests (RBAC + JSON contract)
@@ -382,3 +436,91 @@ class TestWholesaleAnalyticsRoute:
             WHOLESALE_ROUTE.format(property_id=pid)
         )
         assert response.status_code in (401, 403)
+
+    def test_commercial_analytics_parameters(
+        self, api_client: TestClient, seeded_property: PropertyListing
+    ) -> None:
+        """
+        Verify that passing commercial parameters calculates and returns CommercialYieldMetrics.
+        """
+        token = _mint_jwt(role="agent")
+        pid = quote(seeded_property.id, safe="")
+        response = api_client.get(
+            WHOLESALE_ROUTE.format(property_id=pid) + "?monthly_rent_per_sqm=18.5&comm_vacancy_rate=0.07&annual_taxes_insurance=1200.0",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "commercial_metrics" in data
+        comm = data["commercial_metrics"]
+        assert comm is not None
+        assert comm["annual_gross_rent"] == pytest.approx((seeded_property.square_meters * 18.5) * 12, rel=1e-3)
+        assert comm["cap_rate_pct"] > 0
+
+    def test_ltr_analytics_parameters(
+        self, api_client: TestClient, seeded_property: PropertyListing
+    ) -> None:
+        """
+        Verify that passing LTR parameters calculates and returns LtrYieldMetrics.
+        """
+        token = _mint_jwt(role="agent")
+        pid = quote(seeded_property.id, safe="")
+        response = api_client.get(
+            WHOLESALE_ROUTE.format(property_id=pid) + "?monthly_rent=2000.0&ltr_vacancy_rate=0.06&ltr_pm_fee_pct=0.09&monthly_maintenance=150.0",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert "ltr_metrics" in data
+        ltr = data["ltr_metrics"]
+        assert ltr is not None
+        assert ltr["annual_gross_rent"] == 24000.0
+        assert ltr["cap_rate_pct"] > 0
+
+    def test_default_property_type_fallback_behavior(
+        self, api_client: TestClient, db_session: Session
+    ) -> None:
+        """
+        Verify that the analytics endpoint automatically computes LTR default metrics
+        for residential properties and commercial metrics for commercial properties when parameters are omitted.
+        """
+        # Create a commercial property
+        comm_prop = _make_listing(db_session=db_session, sector="Piantini", price_usd=300000.0, square_meters=150.0)
+        comm_prop.property_type = "COMMERCIAL"
+        db_session.add(comm_prop)
+        db_session.flush()
+
+        token = _mint_jwt(role="agent")
+        pid = quote(comm_prop.id, safe="")
+        response = api_client.get(
+            WHOLESALE_ROUTE.format(property_id=pid),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        # Should have commercial metrics automatically computed
+        assert data["commercial_metrics"] is not None
+        assert data["ltr_metrics"] is None  # since it is COMMERCIAL
+        # Verify taxes default to 1% of pitch_price
+        pitch = data["pitch_price"]
+        expected_tax = pitch * 0.01
+        expected_noi = 24300.0 - expected_tax
+        expected_cap = (expected_noi / pitch) * 100
+        assert data["commercial_metrics"]["cap_rate_pct"] == pytest.approx(expected_cap, abs=1e-2)
+
+        # Create a residential property
+        res_prop = _make_listing(db_session=db_session, sector="Piantini", price_usd=250000.0, square_meters=120.0)
+        res_prop.property_type = "RESIDENTIAL"
+        db_session.add(res_prop)
+        db_session.flush()
+
+        pid2 = quote(res_prop.id, safe="")
+        response2 = api_client.get(
+            WHOLESALE_ROUTE.format(property_id=pid2),
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response2.status_code == 200
+        data2 = response2.json()
+        # Should have ltr metrics automatically computed
+        assert data2["ltr_metrics"] is not None
+        assert data2["commercial_metrics"] is None  # since it is RESIDENTIAL
