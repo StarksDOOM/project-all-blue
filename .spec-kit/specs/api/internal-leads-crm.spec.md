@@ -1,6 +1,6 @@
 # Spec: Internal Leads CRM Feed
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.7.1
 **Branch:** `feat/stream-6-phase-1.7.1-internal-leads-crm` ← `develop`
 **Apps:** `apps/api-fastapi/` | `apps/storefront-next/`
