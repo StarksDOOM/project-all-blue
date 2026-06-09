@@ -179,13 +179,24 @@ class WholesalePricingEngine:
         assignment_fee = max(auto_emv * _ASSIGNMENT_FEE_RATIO, _ASSIGNMENT_FEE_FLOOR)
         pitch_price = mao + assignment_fee
 
+        # Resolve default maintenance from predictor if not explicitly provided
+        if monthly_maintenance is not None:
+            maint_default = monthly_maintenance
+        else:
+            predicted = StrDefaultPredictor.predict_defaults(
+                square_meters=target.square_meters,
+                province=target.province,
+                sector=target.sector,
+            )
+            maint_default = predicted["monthly_maintenance"]
+
         # Compute optional STR yield metrics when nightly_rate is provided
         str_kwargs: dict[str, float | None] = {}
         if nightly_rate is not None:
             str_kwargs = self.calculate_str_metrics(
                 nightly_rate=nightly_rate,
                 occupancy_pct=occupancy_pct if occupancy_pct is not None else 0.70,
-                monthly_maintenance=monthly_maintenance if monthly_maintenance is not None else 0.0,
+                monthly_maintenance=maint_default,
                 pitch_price=pitch_price,
             )
 
@@ -215,7 +226,7 @@ class WholesalePricingEngine:
         ltr_metrics = None
         ltr_v_rate = ltr_vacancy_rate if ltr_vacancy_rate is not None else 0.05
         ltr_pm = ltr_pm_fee_pct if ltr_pm_fee_pct is not None else 0.10
-        ltr_maint = monthly_maintenance if monthly_maintenance is not None else 0.0
+        ltr_maint = maint_default
 
         if monthly_rent is not None:
             ltr_metrics = self.calculate_ltr_metrics(

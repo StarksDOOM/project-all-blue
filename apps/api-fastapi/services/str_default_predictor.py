@@ -50,7 +50,7 @@ class StrDefaultPredictor:
         if square_meters is None or square_meters <= 0:
             monthly_maintenance = 150.00
         else:
-            monthly_maintenance = round(square_meters * 2.50, 2)
+            monthly_maintenance = min(round(square_meters * 2.50, 2), 400.00)
 
         # Build location search string
         loc_str = ""
