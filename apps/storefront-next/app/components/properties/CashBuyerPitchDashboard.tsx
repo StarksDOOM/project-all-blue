@@ -148,6 +148,8 @@ export function CashBuyerPitchDashboard({
 }: CashBuyerPitchDashboardProps) {
   const rec = wholesaleData?.recommended_str_assumptions;
 
+  const lastInitializedPropertyRef = useRef<string | null>(null);
+
   // Smart Strategy Pivot: Determine initial tab based on default STR/LTR NOI comparison
   const [activeTab, setActiveTab] = useState<"STR" | "LTR">(() => {
     const defaultStrNoi = wholesaleData?.str_annual_noi ?? 0;
@@ -157,7 +159,7 @@ export function CashBuyerPitchDashboard({
 
   // Sync / Pivot activeTab when property data changes
   useEffect(() => {
-    if (wholesaleData) {
+    if (wholesaleData && lastInitializedPropertyRef.current !== propertyBluId) {
       const defaultStrNoi = wholesaleData.str_annual_noi ?? 0;
       const defaultLtrNoi = wholesaleData.ltr_metrics?.annual_noi ?? 0;
       if (defaultStrNoi < 0 && defaultLtrNoi > 0) {
@@ -165,6 +167,7 @@ export function CashBuyerPitchDashboard({
       } else {
         setActiveTab("STR");
       }
+      lastInitializedPropertyRef.current = propertyBluId;
     }
   }, [propertyBluId, wholesaleData]);
 
@@ -336,7 +339,7 @@ export function CashBuyerPitchDashboard({
     strData?.str_monthly_gross != null && debouncedParams.nightly_rate > 0;
   const hasLtrResults = ltrData?.ltr_metrics != null;
 
-  const isResidential = propertyType?.toUpperCase() === "RESIDENTIAL";
+  const isResidential = !propertyType || propertyType.toUpperCase() !== "COMMERCIAL";
 
   return (
     <Card className="border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 text-white shadow-xl">
