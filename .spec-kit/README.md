@@ -36,6 +36,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/lead-magnet-engine.spec.md](specs/api/lead-magnet-engine.spec.md) | STREAM 6 PHASE 1.7 | SHIPPED |
 | [api/internal-leads-crm.spec.md](specs/api/internal-leads-crm.spec.md) | STREAM 6 PHASE 1.7.1 | SHIPPED |
 | [api/asset-classifier-engine.spec.md](specs/api/asset-classifier-engine.spec.md) | STREAM 6 PHASE 1.8 | SHIPPED |
+| [api/yield-protection-patch.spec.md](specs/api/yield-protection-patch.spec.md) | STREAM 6 PHASE 1.8.1 | SHIPPED |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -70,6 +71,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.7  lead-magnet-engine (LeadCapture model, public capture API, Next.js /invest/[location] route, blur gate) [SHIPPED; baseline 18]
   PHASE 1.7.1 internal-leads-crm (GET /api/v1/leads paginated endpoint, LeadsDataGrid agent dashboard) [SHIPPED; baseline 18]
   PHASE 1.8  asset-classifier-engine (NLP text classifier, Commercial Cap Rates, LTR corporate leases, dynamic storefront dashboards) [SHIPPED; baseline 18]
+  PHASE 1.8.1 yield-protection-patch (predictive maintenance cap, responsive toggle fix, smart pivot, toxic deal feed filter) [SHIPPED; baseline 18]
 ```
 
 ## Developer tooling
