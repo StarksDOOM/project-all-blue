@@ -24,7 +24,7 @@ class StrDefaultPredictor:
         Derive recommended nightly_rate, occupancy_pct, and monthly_maintenance.
 
         Rules:
-            - Maintenance: square_meters * 2.50. Fallback to 150.00 if size is <= 0 or None.
+            - Maintenance: square_meters * 2.50. Fallback to 300.00 if size is <= 0 or None.
             - ADR (nightly_rate) and Occupancy based on location text matching (case-insensitive):
                 - "punta cana" or "altagracia" -> $169.00 ADR, 0.45 Occupancy
                 - "las terrenas" or "samana" -> $234.00 ADR, 0.40 Occupancy
@@ -48,7 +48,7 @@ class StrDefaultPredictor:
         """
         # Determine monthly maintenance
         if square_meters is None or square_meters <= 0:
-            monthly_maintenance = 150.00
+            monthly_maintenance = 300.00
         else:
             monthly_maintenance = min(round(square_meters * 2.50, 2), 400.00)
 

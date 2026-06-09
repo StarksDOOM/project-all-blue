@@ -319,15 +319,15 @@ class TestStrDefaultPredictor:
         res = StrDefaultPredictor.predict_defaults(None, "Santiago", "Cerros de Gurabo")
         assert res["nightly_rate"] == 120.0
         assert res["occupancy_pct"] == 0.40
-        assert res["monthly_maintenance"] == 150.0  # fallback when size is None
+        assert res["monthly_maintenance"] == 300.0  # fallback when size is None
 
     def test_predictor_zero_or_negative_size(self) -> None:
-        """Zero or negative size yields fallback maintenance of $150."""
+        """Zero or negative size yields fallback maintenance of $300."""
         res = StrDefaultPredictor.predict_defaults(0.0, "Punta Cana")
-        assert res["monthly_maintenance"] == 150.0
+        assert res["monthly_maintenance"] == 300.0
 
         res2 = StrDefaultPredictor.predict_defaults(-5.0, "Punta Cana")
-        assert res2["monthly_maintenance"] == 150.0
+        assert res2["monthly_maintenance"] == 300.0
 
     def test_predictor_capped_maintenance(self) -> None:
         """Size * 2.50 exceeding $400 is capped at $400."""
