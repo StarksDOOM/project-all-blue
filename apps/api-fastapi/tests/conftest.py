@@ -65,6 +65,8 @@ PROPERTY_RESPONSE_KEYS = frozenset(
         "is_active",
         "portal_refresh_failed",
         "portal_refresh_message",
+        "listing_type",
+        "property_type",
     }
 )
 
