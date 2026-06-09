@@ -169,7 +169,7 @@ export interface TransactionRecord {
 
 export interface LegalContractRecord {
   id: string;
-  transaction_session_id: string;
+  transaction_session_id?: string | null;
   file_path: string | null;
   storage_url: string | null;
   document_body: string;
@@ -182,7 +182,7 @@ export interface LegalContractRecord {
   docusign_status?: string | null;
   has_audit_certificate?: boolean;
   audit_certificate_path?: string | null;
-  transaction: TransactionRecord;
+  transaction?: TransactionRecord | null;
   property: {
     id: string;
     remote_id: string;
@@ -194,6 +194,7 @@ export interface LegalContractRecord {
     square_meters: number;
     sqm_land: number | null;
   };
+  signing_url?: string | null;
 }
 
 export interface ContractRecord {

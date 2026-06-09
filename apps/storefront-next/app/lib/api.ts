@@ -773,4 +773,21 @@ export const api = {
     }
     return response.json();
   },
+
+  getLatestContractForProperty: async (propertyId: string): Promise<LegalContractRecord | null> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const url = `${resolveApiBaseUrl()}/api/v1/contracts/property/${encodeURIComponent(propertyId)}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`Failed to fetch property contract: ${response.statusText}`);
+    }
+    return response.json();
+  },
 };

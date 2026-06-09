@@ -34,7 +34,7 @@ import {
   formatSecondaryPrice,
   hasPortalListPrice,
 } from "@/lib/pricing";
-import { PropertyListing, WholesaleDealMetrics } from "@/lib/types";
+import type { PropertyListing, WholesaleDealMetrics, LegalContractRecord } from "@/lib/types";
 
 const ContractDrawer = dynamic(
   () => import("@/components/properties/ContractDrawer"),
@@ -197,25 +197,11 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
     }
   }, [alertInfo]);
 
-  const { mutate: generateDirectContract, isPending: isGenerating } = useMutation({
-    mutationFn: () => {
-      if (!property) throw new Error("Inmueble no cargado.");
-      return api.generateContract(property.blu_id || property.remote_id);
-    },
-    onSuccess: (data) => {
-      setAlertInfo({
-        type: "success",
-        title: "Contrato DocuSign Generado",
-        message: `El contrato ha sido enviado para firmas. Envelope ID: ${data.envelope_id}`,
-      });
-    },
-    onError: (err: any) => {
-      setAlertInfo({
-        type: "error",
-        title: "Error de Generación",
-        message: err.message || "Ocurrió un error al generar el contrato.",
-      });
-    },
+  const { data: contract, refetch: refetchContract } = useQuery<LegalContractRecord | null>({
+    queryKey: ["property-contract", propertyBluId],
+    queryFn: () => api.getLatestContractForProperty(propertyBluId),
+    enabled: propertyBluId.length > 0,
+    staleTime: 60_000,
   });
 
   return (
@@ -502,21 +488,34 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Acción</p>
               <p className="truncate text-sm font-medium text-slate-900">{property.title}</p>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-              {(userRole === "agent" || userRole === "admin" || !userRole) && (
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+              {!contract ? (
                 <Button
                   size="lg"
-                  variant="default"
                   className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all duration-200"
-                  onClick={() => generateDirectContract()}
-                  disabled={isGenerating}
+                  onClick={() => setIsTransactionModalOpen(true)}
                 >
-                  {isGenerating ? "Enviando a DocuSign..." : "DocuSign Directo"}
+                  Generar Contrato
                 </Button>
+              ) : !contract.signing_url ? (
+                <Button
+                  size="lg"
+                  disabled
+                  variant="secondary"
+                  className="w-full sm:w-auto border border-slate-200 text-slate-400 bg-slate-100 font-medium cursor-not-allowed"
+                >
+                  Contract Generated - Pending Signature Setup
+                </Button>
+              ) : (
+                <a
+                  href={contract.signing_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/10 hover:shadow-emerald-500/20 transition-all duration-200"
+                >
+                  Review and Sign Contract
+                </a>
               )}
-              <Button size="lg" className="w-full sm:w-auto" onClick={() => setIsTransactionModalOpen(true)}>
-                Generar Contrato
-              </Button>
               <Button
                 size="lg"
                 variant="outline"
