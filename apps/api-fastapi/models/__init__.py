@@ -94,6 +94,8 @@ class PropertyListing(AllBlueBaseModel, table=True):
     agent_agency: Optional[str] = Field(default=None, nullable=True)
     raw_description: str  # Compact summary for search and contract templates
     is_active: bool = Field(default=True)  # RE/MAX: status == disponible
+    listing_type: str = Field(default="FOR_SALE", index=True)
+    property_type: str = Field(default="RESIDENTIAL", index=True)
 
 
 class ScraperErrorLog(SQLModel, table=True):

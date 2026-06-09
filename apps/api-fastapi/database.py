@@ -185,6 +185,8 @@ def ensure_ingestion_schema() -> None:
         """,
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS sqm_land DOUBLE PRECISION",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS listing_currency VARCHAR DEFAULT 'USD'",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS listing_type VARCHAR DEFAULT 'FOR_SALE'",
+        "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS property_type VARCHAR DEFAULT 'RESIDENTIAL'",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_name VARCHAR",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_phone VARCHAR",
         "ALTER TABLE real_estate.properties ADD COLUMN IF NOT EXISTS agent_email VARCHAR",
