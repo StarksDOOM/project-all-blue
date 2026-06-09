@@ -6,7 +6,7 @@ import { Bell } from "lucide-react";
 
 import { api } from "@/lib/api";
 import { savedSearchKeys } from "@/lib/query-keys";
-import { useFilterParams } from "@/hooks/useFilterParams";
+import { type PropertyFilterParams } from "@/lib/property-filters";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 
-function deriveDefaultTitle(filters: ReturnType<typeof useFilterParams>["appliedFilters"]): string {
+function deriveDefaultTitle(filters: PropertyFilterParams): string {
   const parts: string[] = [];
   if (filters.sector) parts.push(filters.sector);
   if (filters.property_type) parts.push(filters.property_type === "venta" ? "Venta" : "Alquiler");
@@ -35,8 +35,7 @@ function deriveDefaultTitle(filters: ReturnType<typeof useFilterParams>["applied
   return `Alerta ${base}`;
 }
 
-export function useCreateSearchAlert() {
-  const { appliedFilters } = useFilterParams();
+export function useCreateSearchAlert(appliedFilters: PropertyFilterParams) {
   const queryClient = useQueryClient();
 
   const [open, setOpen] = useState(false);

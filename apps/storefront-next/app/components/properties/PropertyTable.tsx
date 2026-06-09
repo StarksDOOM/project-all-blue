@@ -62,7 +62,7 @@ export function PropertyTable({
     isDebouncing,
   } = useFilterParams();
 
-  const createAlert = useCreateSearchAlert();
+  const createAlert = useCreateSearchAlert(appliedFilters);
 
   const currentPage = appliedFilters.page ?? 1;
 
@@ -117,50 +117,6 @@ export function PropertyTable({
     metadata?.has_next ?? (inventoryTotal != null && currentPage < totalPages);
   const showPartialSkeleton = Boolean(data && (isFetching || isDebouncing));
 
-  if (isLoading && !data) {
-    return (
-      <div className="space-y-4">
-        <PropertyFilterPanel
-          filters={appliedFilters}
-          draft={draft}
-          onDraftChange={setDraftField}
-          onInstantChange={setInstantFilter}
-          onReset={resetFilters}
-          isDebouncing={isDebouncing}
-          onSaveAlert={createAlert.openDialog}
-        />
-        <Card>
-          <CardContent className="space-y-3 pt-6">
-            <Skeleton className="h-8 w-full max-w-md" />
-            <Skeleton className="h-64 w-full" />
-          </CardContent>
-        </Card>
-        {createAlert.dialog}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="space-y-4">
-        <PropertyFilterPanel
-          filters={appliedFilters}
-          draft={draft}
-          onDraftChange={setDraftField}
-          onInstantChange={setInstantFilter}
-          onReset={resetFilters}
-          onSaveAlert={createAlert.openDialog}
-        />
-        <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="pt-4 text-sm text-destructive">
-            Failed to load properties: {(error as Error).message}
-          </CardContent>
-        </Card>
-        {createAlert.dialog}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       <PropertyFilterPanel
@@ -173,133 +129,150 @@ export function PropertyTable({
         onSaveAlert={createAlert.openDialog}
       />
 
-      <div className="flex justify-end text-sm text-muted-foreground">
-        {metadata ? (
-          <span>
-            Page {metadata.page}
-            {inventoryTotal != null ? (
-              <> of {totalPages} ({inventoryTotal.toLocaleString()} total)</>
-            ) : metadata.has_next ? (
-              <> · more available</>
+      {isLoading && !data ? (
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <Skeleton className="h-8 w-full max-w-md" />
+            <Skeleton className="h-64 w-full" />
+          </CardContent>
+        </Card>
+      ) : isError ? (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="pt-4 text-sm text-destructive">
+            Failed to load properties: {(error as Error).message}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="flex justify-end text-sm text-muted-foreground">
+            {metadata ? (
+              <span>
+                Page {metadata.page}
+                {inventoryTotal != null ? (
+                  <> of {totalPages} ({inventoryTotal.toLocaleString()} total)</>
+                ) : metadata.has_next ? (
+                  <> · more available</>
+                ) : null}
+              </span>
             ) : null}
-          </span>
-        ) : null}
-      </div>
+          </div>
 
-      <Card className="relative py-0">
-        {showPartialSkeleton ? (
-          <p className="absolute right-4 top-3 z-10 text-xs font-medium text-muted-foreground">
-            Updating results…
-          </p>
-        ) : null}
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Property</TableHead>
-              <TableHead>Price</TableHead>
-              <TableHead>Sector</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody
-            className={cn(
-              showPartialSkeleton && "pointer-events-none opacity-50 transition-opacity"
-            )}
-          >
-            {rows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No properties match the current filters.
-                </TableCell>
-              </TableRow>
-            ) : (
-              rows.map((property) => {
-                const isSelected = selectedPropertyId === property.id;
-                return (
-                  <TableRow
-                    key={property.remote_id}
-                    data-state={isSelected ? "selected" : undefined}
-                  >
-                    <TableCell>
-                      <div className="font-medium">{property.title}</div>
-                      <div className="text-xs text-muted-foreground">#{property.remote_id}</div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{formatPrimaryPrice(property)}</div>
-                      {formatSecondaryPrice(property) ? (
-                        <div className="text-xs text-muted-foreground">
-                          {formatSecondaryPrice(property)}
-                        </div>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{property.sector}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={businessTypeBadgeVariant(property.business_type)}
-                        className="capitalize"
-                      >
-                        {property.business_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex flex-col items-end gap-2">
-                        <Link
-                          href={`/properties/${property.remote_id}`}
-                          prefetch
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                        >
-                          Ver detalle
-                        </Link>
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          onClick={() => setContractProperty(property)}
-                        >
-                          Generar Contrato
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => onSelectProperty(property)}
-                        >
-                          SRL (legacy)
-                        </Button>
-                      </div>
+          <Card className="relative py-0">
+            {showPartialSkeleton ? (
+              <p className="absolute right-4 top-3 z-10 text-xs font-medium text-muted-foreground">
+                Updating results…
+              </p>
+            ) : null}
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Property</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Sector</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody
+                className={cn(
+                  showPartialSkeleton && "pointer-events-none opacity-50 transition-opacity"
+                )}
+              >
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      No properties match the current filters.
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                ) : (
+                  rows.map((property) => {
+                    const isSelected = selectedPropertyId === property.id;
+                    return (
+                      <TableRow
+                        key={property.remote_id}
+                        data-state={isSelected ? "selected" : undefined}
+                      >
+                        <TableCell>
+                          <div className="font-medium">{property.title}</div>
+                          <div className="text-xs text-muted-foreground">#{property.remote_id}</div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{formatPrimaryPrice(property)}</div>
+                          {formatSecondaryPrice(property) ? (
+                            <div className="text-xs text-muted-foreground">
+                              {formatSecondaryPrice(property)}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>{property.sector}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={businessTypeBadgeVariant(property.business_type)}
+                            className="capitalize"
+                          >
+                            {property.business_type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col items-end gap-2">
+                            <Link
+                              href={`/properties/${property.remote_id}`}
+                              prefetch
+                              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                            >
+                              Ver detalle
+                            </Link>
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              onClick={() => setContractProperty(property)}
+                            >
+                              Generar Contrato
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => onSelectProperty(property)}
+                            >
+                              SRL (legacy)
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </Card>
 
-      <Card>
-        <CardContent className="flex items-center justify-between py-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setPage(Math.max(1, currentPage - 1))}
-            disabled={!canGoPrevious || isFetching}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setPage(currentPage + 1)}
-            disabled={!canGoNext || isFetching}
-          >
-            Next
-          </Button>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="flex items-center justify-between py-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPage(Math.max(1, currentPage - 1))}
+                disabled={!canGoPrevious || isFetching}
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPage(currentPage + 1)}
+                disabled={!canGoNext || isFetching}
+              >
+                Next
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       {contractProperty ? (
         <TransactionContractModal

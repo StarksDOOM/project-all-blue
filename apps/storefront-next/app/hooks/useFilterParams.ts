@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 import {
   DEFAULT_PROPERTY_FILTERS,
@@ -24,15 +24,38 @@ const DEBOUNCED_FIELDS: (keyof DraftFilterFields)[] = [
   "agency",
 ];
 
+let cachedNativeReplaceState: typeof window.history.replaceState | null = null;
+
+function getNativeReplaceState(): typeof window.history.replaceState {
+  if (typeof window === "undefined") return () => {};
+  if (cachedNativeReplaceState) return cachedNativeReplaceState;
+
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+    const nativeReplace = iframe.contentWindow?.history.replaceState;
+    document.body.removeChild(iframe);
+    if (nativeReplace) {
+      cachedNativeReplaceState = nativeReplace.bind(window.history);
+      return cachedNativeReplaceState;
+    }
+  } catch (e) {
+    console.error("Failed to get native replaceState, falling back to monkey-patched", e);
+  }
+  return window.history.replaceState.bind(window.history);
+}
+
 export function useFilterParams() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const appliedFilters = useMemo(
-    () => parseFiltersFromSearchParams(searchParams),
-    [searchParams]
-  );
+  // Initialize filters from search parameters ONLY once on mount
+  const initialFilters = useMemo(() => {
+    return parseFiltersFromSearchParams(searchParams);
+  }, []); // Empty dependency: only compute once on initial mount
+
+  const [appliedFilters, setAppliedFilters] = useState<PropertyFilterParams>(initialFilters);
 
   const fingerprint = useMemo(
     () => filtersFingerprint(appliedFilters),
@@ -60,8 +83,6 @@ export function useFilterParams() {
         const prevUrlVal = prev[field];
 
         if (urlVal !== prevUrlVal) {
-          // Only sync if the current draft value matches the old URL value
-          // (meaning the user wasn't editing this field and the change is external)
           if (currentDraft[field] === prevUrlVal) {
             nextDraft[field] = urlVal as any;
             updated = true;
@@ -77,7 +98,8 @@ export function useFilterParams() {
 
   const debouncedDraft = useDebouncedValue(draft, 300);
 
-  const replaceFilters = useCallback(
+  // Updates the browser URL bar silently using the native, unpatched replaceState
+  const replaceFiltersInUrl = useCallback(
     (next: PropertyFilterParams) => {
       const query = filtersToSearchParams({
         ...DEFAULT_PROPERTY_FILTERS,
@@ -87,30 +109,35 @@ export function useFilterParams() {
       const qs = query.toString();
       const newUrl = qs ? `${pathname}?${qs}` : pathname;
 
-      // Use shallow routing to prevent server-side re-request and loading.tsx flashes
-      window.history.replaceState(null, "", newUrl);
+      const nativeReplace = getNativeReplaceState();
+      nativeReplace(null, "", newUrl);
     },
     [pathname]
   );
 
+  // Sync debounced changes to local applied filters and URL
   useEffect(() => {
     const pendingChange = DEBOUNCED_FIELDS.some(
       (field) => debouncedDraft[field] !== appliedFilters[field]
     );
     if (!pendingChange) return;
 
-    replaceFilters({
+    const nextFilters = {
       ...appliedFilters,
       ...debouncedDraft,
       page: 1,
-    });
-  }, [debouncedDraft, appliedFilters, replaceFilters]);
+    };
+    setAppliedFilters(nextFilters);
+    replaceFiltersInUrl(nextFilters);
+  }, [debouncedDraft, appliedFilters, replaceFiltersInUrl]);
 
   const setInstantFilter = useCallback(
     (patch: Partial<PropertyFilterParams>) => {
-      replaceFilters({ ...appliedFilters, ...patch, page: 1 });
+      const nextFilters = { ...appliedFilters, ...patch, page: 1 };
+      setAppliedFilters(nextFilters);
+      replaceFiltersInUrl(nextFilters);
     },
-    [appliedFilters, replaceFilters]
+    [appliedFilters, replaceFiltersInUrl]
   );
 
   const setDraftField = useCallback(
@@ -122,15 +149,19 @@ export function useFilterParams() {
 
   const setPage = useCallback(
     (page: number) => {
-      replaceFilters({ ...appliedFilters, page });
+      const nextFilters = { ...appliedFilters, page };
+      setAppliedFilters(nextFilters);
+      replaceFiltersInUrl(nextFilters);
     },
-    [appliedFilters, replaceFilters]
+    [appliedFilters, replaceFiltersInUrl]
   );
 
   const resetFilters = useCallback(() => {
     setDraft({});
-    replaceFilters({ ...DEFAULT_PROPERTY_FILTERS });
-  }, [replaceFilters]);
+    const nextFilters = { ...DEFAULT_PROPERTY_FILTERS };
+    setAppliedFilters(nextFilters);
+    replaceFiltersInUrl(nextFilters);
+  }, [replaceFiltersInUrl]);
 
   const isDebouncing = DEBOUNCED_FIELDS.some(
     (field) => draft[field] !== debouncedDraft[field]
