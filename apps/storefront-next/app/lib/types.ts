@@ -288,6 +288,7 @@ export interface WholesaleDealMetrics {
   str_projection_6mo: number | null;
   str_projection_1yr: number | null;
   str_projection_3yr: number | null;
+  recommended_str_assumptions: StrAssumptions;
 }
 
 /** STR assumption parameters for the Cash Buyer Pitch Dashboard. */
