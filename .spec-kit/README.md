@@ -33,6 +33,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/docuseal-provider-swap.spec.md](specs/api/docuseal-provider-swap.spec.md) | STREAM 6 PHASE 1.5 | SHIPPED |
 | [api/airbnb-roi-engine.spec.md](specs/api/airbnb-roi-engine.spec.md) | STREAM 6 PHASE 1.6 | SHIPPED |
 | [api/dynamic-str-pre-fills.spec.md](specs/api/dynamic-str-pre-fills.spec.md) | STREAM 6 PHASE 1.6.1 | SHIPPED |
+| [api/lead-magnet-engine.spec.md](specs/api/lead-magnet-engine.spec.md) | STREAM 6 PHASE 1.7 | DRAFT |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -40,7 +41,6 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 STREAM 2 — Ingestion & inventory
   PHASE 3.9  scraper-error-telemetry
   PHASE 4.1  ingestion-oop
-
 STREAM 4 — Transactions & execution
   PHASE 4.0  transaction-legal-engine
   PHASE 5.0  secure-pdf-signatures
@@ -65,6 +65,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.5  docuseal-provider-swap (DocuSeal dispatcher, X-Docuseal-Signature validator, webhook endpoint) [SHIPPED; baseline 16]
   PHASE 1.6  airbnb-roi-engine (STR yield calculator, NOI, Cash-on-Cash, interactive pitch dashboard) [SHIPPED; baseline 16]
   PHASE 1.6.1 dynamic-str-pre-fills (recommended_str_assumptions in API, client hydration, StrDefaultPredictor) [SHIPPED; baseline 17]
+  PHASE 1.7  lead-magnet-engine (LeadCapture model, public capture API, Next.js /invest/[location] route, blur gate) [DRAFT; baseline 18]
 ```
 
 ## Developer tooling
