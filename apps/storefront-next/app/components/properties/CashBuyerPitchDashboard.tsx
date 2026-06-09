@@ -148,8 +148,25 @@ export function CashBuyerPitchDashboard({
 }: CashBuyerPitchDashboardProps) {
   const rec = wholesaleData?.recommended_str_assumptions;
 
-  // Mode state: STR vs LTR
-  const [mode, setMode] = useState<"STR" | "LTR">("STR");
+  // Smart Strategy Pivot: Determine initial tab based on default STR/LTR NOI comparison
+  const [activeTab, setActiveTab] = useState<"STR" | "LTR">(() => {
+    const defaultStrNoi = wholesaleData?.str_annual_noi ?? 0;
+    const defaultLtrNoi = wholesaleData?.ltr_metrics?.annual_noi ?? 0;
+    return (defaultStrNoi < 0 && defaultLtrNoi > 0) ? "LTR" : "STR";
+  });
+
+  // Sync / Pivot activeTab when property data changes
+  useEffect(() => {
+    if (wholesaleData) {
+      const defaultStrNoi = wholesaleData.str_annual_noi ?? 0;
+      const defaultLtrNoi = wholesaleData.ltr_metrics?.annual_noi ?? 0;
+      if (defaultStrNoi < 0 && defaultLtrNoi > 0) {
+        setActiveTab("LTR");
+      } else {
+        setActiveTab("STR");
+      }
+    }
+  }, [propertyBluId, wholesaleData]);
 
   // Lead Magnet lock state (only active when locationSlug is present)
   const [isLocked, setIsLocked] = useState(() => {
@@ -251,7 +268,7 @@ export function CashBuyerPitchDashboard({
       queryFn: () =>
         api.getWholesaleAnalytics(propertyBluId, debouncedParams),
       enabled:
-        propertyBluId.length > 0 && debouncedParams.nightly_rate > 0 && mode === "STR",
+        propertyBluId.length > 0 && debouncedParams.nightly_rate > 0 && activeTab === "STR",
       staleTime: 60_000,
       retry: false,
     });
@@ -269,7 +286,7 @@ export function CashBuyerPitchDashboard({
       queryFn: () =>
         api.getWholesaleAnalytics(propertyBluId, undefined, undefined, debouncedLtrParams),
       enabled:
-        propertyBluId.length > 0 && mode === "LTR",
+        propertyBluId.length > 0 && activeTab === "LTR",
       staleTime: 60_000,
       retry: false,
     });
@@ -319,6 +336,8 @@ export function CashBuyerPitchDashboard({
     strData?.str_monthly_gross != null && debouncedParams.nightly_rate > 0;
   const hasLtrResults = ltrData?.ltr_metrics != null;
 
+  const isResidential = propertyType?.toUpperCase() === "RESIDENTIAL";
+
   return (
     <Card className="border-slate-700/50 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 text-white shadow-xl">
       <CardHeader className="pb-3">
@@ -334,14 +353,14 @@ export function CashBuyerPitchDashboard({
           </div>
 
           {/* Segmented Toggle for STR/LTR */}
-          {propertyType === "RESIDENTIAL" && (
+          {isResidential && (
             <div className="flex p-0.5 rounded-lg bg-slate-800/80 ring-1 ring-slate-700/50 w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setMode("STR")}
+                onClick={() => setActiveTab("STR")}
                 className={cn(
                   "flex-1 sm:flex-initial px-3 py-1 text-xs font-semibold rounded transition-all duration-200",
-                  mode === "STR"
+                  activeTab === "STR"
                     ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
                 )}
@@ -350,10 +369,10 @@ export function CashBuyerPitchDashboard({
               </button>
               <button
                 type="button"
-                onClick={() => setMode("LTR")}
+                onClick={() => setActiveTab("LTR")}
                 className={cn(
                   "flex-1 sm:flex-initial px-3 py-1 text-xs font-semibold rounded transition-all duration-200",
-                  mode === "LTR"
+                  activeTab === "LTR"
                     ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white"
                 )}
@@ -366,7 +385,7 @@ export function CashBuyerPitchDashboard({
       </CardHeader>
 
       <CardContent className="space-y-5">
-        {mode === "STR" ? (
+        {activeTab === "STR" ? (
           <>
             {/* ---- STR Assumption sliders ---- */}
             <div className="space-y-4 rounded-xl bg-slate-800/40 p-4 ring-1 ring-slate-700/30">
