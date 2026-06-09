@@ -298,4 +298,21 @@ export interface StrAssumptions {
   monthly_maintenance: number;
 }
 
+/** Payload to capture a public lead on dynamic lead magnet routes. */
+export interface LeadCapturePayload {
+  email: string;
+  location_slug: string;
+  traffic_source: string;
+  simulated_purchase_price: number;
+  simulated_nightly_rate: number;
+  simulated_occupancy: number;
+  simulated_maintenance: number;
+}
+
+/** Response payload returned upon successful lead capture registration. */
+export interface LeadCaptureResponse {
+  id: string;
+}
+
+
 

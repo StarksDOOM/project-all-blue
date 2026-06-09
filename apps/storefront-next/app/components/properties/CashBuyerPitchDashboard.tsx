@@ -133,11 +133,15 @@ function MetricCard({ label, value, sub, accent = "default" }: MetricCardProps) 
 interface CashBuyerPitchDashboardProps {
   propertyBluId: string;
   wholesaleData: WholesaleDealMetrics | null | undefined;
+  locationSlug?: string;
+  trafficSource?: string;
 }
 
 export function CashBuyerPitchDashboard({
   propertyBluId,
   wholesaleData,
+  locationSlug,
+  trafficSource,
 }: CashBuyerPitchDashboardProps) {
   const rec = wholesaleData?.recommended_str_assumptions;
 
