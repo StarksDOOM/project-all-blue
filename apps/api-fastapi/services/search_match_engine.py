@@ -88,10 +88,8 @@ class SearchMatchEngine:
             if filters.keyword.lower() not in haystack:
                 return False
 
-        # Effective price mirrors COALESCE(list_price, price_usd)
-        effective_price = (
-            listing.list_price if listing.list_price is not None else listing.price_usd
-        )
+        # Effective price uses normalized price_usd in USD
+        effective_price = listing.price_usd
         if filters.price_min is not None and effective_price < filters.price_min:
             return False
         if filters.price_max is not None and effective_price > filters.price_max:

@@ -16,7 +16,7 @@ from scrapers.utils.normalization import hydrate_listing_bathrooms
 _LIST_COUNT_CACHE: dict[str, tuple[int, float]] = {}
 _LIST_COUNT_TTL_SEC = 90.0
 
-_EFFECTIVE_LIST_PRICE = func.coalesce(PropertyListing.list_price, PropertyListing.price_usd)
+_EFFECTIVE_LIST_PRICE = PropertyListing.price_usd
 
 
 @dataclass(frozen=True)
