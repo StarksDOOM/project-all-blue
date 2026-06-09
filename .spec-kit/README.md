@@ -35,7 +35,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/dynamic-str-pre-fills.spec.md](specs/api/dynamic-str-pre-fills.spec.md) | STREAM 6 PHASE 1.6.1 | SHIPPED |
 | [api/lead-magnet-engine.spec.md](specs/api/lead-magnet-engine.spec.md) | STREAM 6 PHASE 1.7 | SHIPPED |
 | [api/internal-leads-crm.spec.md](specs/api/internal-leads-crm.spec.md) | STREAM 6 PHASE 1.7.1 | SHIPPED |
-| [api/asset-classifier-engine.spec.md](specs/api/asset-classifier-engine.spec.md) | STREAM 6 PHASE 1.8 | DRAFT |
+| [api/asset-classifier-engine.spec.md](specs/api/asset-classifier-engine.spec.md) | STREAM 6 PHASE 1.8 | SHIPPED |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -69,7 +69,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.6.1 dynamic-str-pre-fills (recommended_str_assumptions in API, client hydration, StrDefaultPredictor) [SHIPPED; baseline 17]
   PHASE 1.7  lead-magnet-engine (LeadCapture model, public capture API, Next.js /invest/[location] route, blur gate) [SHIPPED; baseline 18]
   PHASE 1.7.1 internal-leads-crm (GET /api/v1/leads paginated endpoint, LeadsDataGrid agent dashboard) [SHIPPED; baseline 18]
-  PHASE 1.8  asset-classifier-engine (NLP text classifier, Commercial Cap Rates, LTR corporate leases, dynamic storefront dashboards) [DRAFT; baseline 18]
+  PHASE 1.8  asset-classifier-engine (NLP text classifier, Commercial Cap Rates, LTR corporate leases, dynamic storefront dashboards) [SHIPPED; baseline 18]
 ```
 
 ## Developer tooling

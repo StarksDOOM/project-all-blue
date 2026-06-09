@@ -1,6 +1,6 @@
 # Spec: Asset Classifier & Multi-Yield Engine
 
-## Status: DRAFT
+## Status: SHIPPED
 **Roadmap:** STREAM 6 PHASE 1.8  
 **Branch:** `feat/stream-6-phase-1.8-asset-classifier-engine` ← `develop`  
 **Apps:** `apps/api-fastapi/` | `apps/storefront-next/`  
