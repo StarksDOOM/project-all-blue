@@ -34,6 +34,7 @@ Architectural ground truth for **All Blue Core**. Implementation must match thes
 | [api/airbnb-roi-engine.spec.md](specs/api/airbnb-roi-engine.spec.md) | STREAM 6 PHASE 1.6 | SHIPPED |
 | [api/dynamic-str-pre-fills.spec.md](specs/api/dynamic-str-pre-fills.spec.md) | STREAM 6 PHASE 1.6.1 | SHIPPED |
 | [api/lead-magnet-engine.spec.md](specs/api/lead-magnet-engine.spec.md) | STREAM 6 PHASE 1.7 | SHIPPED |
+| [api/internal-leads-crm.spec.md](specs/api/internal-leads-crm.spec.md) | STREAM 6 PHASE 1.7.1 | SHIPPED |
 
 ## Roadmap map (legal & execution pipeline)
 
@@ -66,6 +67,7 @@ STREAM 6 — Contract automation & signing
   PHASE 1.6  airbnb-roi-engine (STR yield calculator, NOI, Cash-on-Cash, interactive pitch dashboard) [SHIPPED; baseline 16]
   PHASE 1.6.1 dynamic-str-pre-fills (recommended_str_assumptions in API, client hydration, StrDefaultPredictor) [SHIPPED; baseline 17]
   PHASE 1.7  lead-magnet-engine (LeadCapture model, public capture API, Next.js /invest/[location] route, blur gate) [SHIPPED; baseline 18]
+  PHASE 1.7.1 internal-leads-crm (GET /api/v1/leads paginated endpoint, LeadsDataGrid agent dashboard) [SHIPPED; baseline 18]
 ```
 
 ## Developer tooling

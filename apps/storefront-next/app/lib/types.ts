@@ -314,5 +314,24 @@ export interface LeadCaptureResponse {
   id: string;
 }
 
+export interface LeadCaptureRecord {
+  id: string;
+  email: string;
+  location_slug: string;
+  traffic_source: string;
+  simulated_purchase_price: number;
+  simulated_nightly_rate: number;
+  simulated_occupancy: number;
+  simulated_maintenance: number;
+  created_at: string;
+}
+
+export interface LeadsListResponse {
+  data: LeadCaptureRecord[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
 
 

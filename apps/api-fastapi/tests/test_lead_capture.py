@@ -139,3 +139,115 @@ def test_create_lead_capture_invalid_simulated_values(api_client: TestClient) ->
     for payload in bad_payloads:
         response = api_client.post("/api/v1/leads/capture", json=payload)
         assert response.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# STREAM 6 PHASE 1.7.1 — GET /api/v1/leads integration tests
+# ---------------------------------------------------------------------------
+
+def _make_lead_payload(email: str, location_slug: str = "punta-cana") -> dict:
+    """Build a minimal valid lead capture payload."""
+    return {
+        "email": email,
+        "location_slug": location_slug,
+        "traffic_source": "organic",
+        "simulated_purchase_price": 200000.0,
+        "simulated_nightly_rate": 150.0,
+        "simulated_occupancy": 0.60,
+        "simulated_maintenance": 200.0,
+    }
+
+
+def test_list_leads_returns_newest_first(
+    api_client: TestClient,
+) -> None:
+    """Verify GET /api/v1/leads returns records sorted newest-first (created_at DESC)."""
+    # Create three leads in sequence
+    emails = [
+        "first@example.com",
+        "second@example.com",
+        "third@example.com",
+    ]
+    created_ids = []
+    for email in emails:
+        r = api_client.post("/api/v1/leads/capture", json=_make_lead_payload(email))
+        assert r.status_code == 201
+        created_ids.append(r.json()["id"])
+
+    response = api_client.get("/api/v1/leads")
+    assert response.status_code == 200
+
+    body = response.json()
+    assert "data" in body
+    assert "total" in body
+    assert "skip" in body
+    assert "limit" in body
+
+    # Filter to the three leads we just created (other tests may have created leads too)
+    our_rows = [row for row in body["data"] if row["id"] in created_ids]
+    assert len(our_rows) == 3
+
+    # The list endpoint is globally sorted newest-first, so our third lead
+    # should appear before the first.
+    our_positions = {row["id"]: idx for idx, row in enumerate(body["data"])}
+    assert our_positions[created_ids[2]] < our_positions[created_ids[0]], (
+        "Third (newest) lead should appear before the first (oldest) in the sorted list"
+    )
+
+
+def test_list_leads_pagination_skip_limit(
+    api_client: TestClient,
+) -> None:
+    """Verify skip and limit query params correctly slice the lead list."""
+    # Create 4 leads so we have a stable set to paginate
+    for i in range(4):
+        r = api_client.post(
+            "/api/v1/leads/capture",
+            json=_make_lead_payload(f"page-test-{i}@example.com"),
+        )
+        assert r.status_code == 201
+
+    # Fetch first page of 2
+    r1 = api_client.get("/api/v1/leads?skip=0&limit=2")
+    assert r1.status_code == 200
+    body1 = r1.json()
+    assert len(body1["data"]) == 2
+    assert body1["limit"] == 2
+    assert body1["skip"] == 0
+
+    # Fetch second page of 2
+    r2 = api_client.get("/api/v1/leads?skip=2&limit=2")
+    assert r2.status_code == 200
+    body2 = r2.json()
+    assert len(body2["data"]) == 2
+    assert body2["skip"] == 2
+
+    # Pages must not overlap
+    ids_page1 = {row["id"] for row in body1["data"]}
+    ids_page2 = {row["id"] for row in body2["data"]}
+    assert ids_page1.isdisjoint(ids_page2), "Pages must not contain the same records"
+
+    # Total must reflect entire dataset, not just the page
+    assert body1["total"] >= 4
+
+
+def test_list_leads_empty(
+    api_client: TestClient,
+    db_session: Session,
+) -> None:
+    """Verify the list endpoint returns 200 with empty data when no leads exist."""
+    from models import LeadCapture as LC
+    from sqlmodel import delete as sql_delete
+
+    # Clear the table for this test
+    db_session.exec(sql_delete(LC))  # type: ignore[call-overload]
+    db_session.commit()
+
+    response = api_client.get("/api/v1/leads")
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["data"] == []
+    assert body["total"] == 0
+    assert body["skip"] == 0
+    assert body["limit"] == 100
