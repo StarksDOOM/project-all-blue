@@ -30,6 +30,11 @@ export const contractKeys = {
   list: () => [...contractKeys.all, "list"] as const,
 };
 
+export const leadKeys = {
+  all: ["leads"] as const,
+  list: (skip?: number, limit?: number) => [...leadKeys.all, "list", skip, limit] as const,
+};
+
 export const analyticsKeys = {
   wholesale: (propertyId: string) =>
     ["analytics", "wholesale", propertyId] as const,

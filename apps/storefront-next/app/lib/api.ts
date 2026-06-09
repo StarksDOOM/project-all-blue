@@ -19,6 +19,7 @@ import {
   WholesaleDealMetrics,
   LeadCapturePayload,
   LeadCaptureResponse,
+  LeadsListResponse,
 } from "./types";
 
 /**
@@ -722,6 +723,26 @@ export const api = {
     });
     if (!response.ok) {
       throw new Error(`Lead capture failed: ${response.statusText}`);
+    }
+    return response.json();
+  },
+
+  getLeads: async (skip?: number, limit?: number): Promise<LeadsListResponse> => {
+    const token = getBearerToken();
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const params = new URLSearchParams();
+    if (skip != null) params.set("skip", String(skip));
+    if (limit != null) params.set("limit", String(limit));
+    const queryStr = params.toString();
+    const url = `${resolveApiBaseUrl()}/api/v1/leads${queryStr ? `?${queryStr}` : ""}`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to load leads: ${response.statusText}`);
     }
     return response.json();
   },
