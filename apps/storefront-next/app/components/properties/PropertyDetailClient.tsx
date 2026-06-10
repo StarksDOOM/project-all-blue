@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Bath,
@@ -135,11 +135,15 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<PropertyListing | null>(null);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const refreshActiveRef = useRef(false);
 
   const { data: detailResult, isLoading, isError, error, isFetching, refetch } = useQuery({
     queryKey: propertyKeys.detail(propertyId, "portal"),
-    queryFn: () =>
-      getPropertyDetail(propertyId, { refreshFromPortal: true }),
+    queryFn: () => {
+      const forceRefresh = refreshActiveRef.current;
+      refreshActiveRef.current = false;
+      return getPropertyDetail(propertyId, { refreshFromPortal: forceRefresh });
+    },
     enabled: propertyId.length > 0,
     staleTime: 120_000,
     refetchOnMount: false,
@@ -252,7 +256,10 @@ export function PropertyDetailClient({ propertyId }: PropertyDetailClientProps) 
                     variant="outline"
                     size="sm"
                     disabled={isFetching}
-                    onClick={() => refetch()}
+                    onClick={() => {
+                      refreshActiveRef.current = true;
+                      refetch();
+                    }}
                   >
                     {isFetching ? "Sincronizando…" : "Sincronizar con portal"}
                   </Button>

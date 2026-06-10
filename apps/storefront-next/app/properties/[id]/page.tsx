@@ -17,7 +17,7 @@ export default async function PropertyDetailPage({ params }: PropertyDetailPageP
   if (propertyId) {
     await queryClient.prefetchQuery({
       queryKey: propertyKeys.detail(propertyId, "portal"),
-      queryFn: () => fetchPropertyDetail(propertyId, { refreshFromPortal: true }),
+      queryFn: () => fetchPropertyDetail(propertyId, { refreshFromPortal: false }),
     });
   }
 
