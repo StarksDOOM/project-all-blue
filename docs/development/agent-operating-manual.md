@@ -69,6 +69,14 @@ When the user instructs you to **fix** something (a bug report, "the gallery is 
 
 Violations are treated as seriously as other ZERO-TOLERANCE rules. The user has been explicit that "fix X" does **not** mean "break or change Y".
 
+## Agent Development Safeguards (ZERO-TOLERANCE)
+
+To prevent security leaks, broken documentation, and incomplete work, the Agent MUST adhere to these checks on every task:
+
+- **Stray Secrets**: Double-check recent commits, diffs, and environment setups to ensure absolutely no live API keys, database URLs, or staging credentials accidentally slip past the `.gitignore` into the public repository.
+- **Dead Document Links**: Verify all links inside markdown documents (such as [README.md](file:///c:/Users/Leo%20Fulgencio/Projects/project-all-blue/README.md) or manuals pointing to [engineering-directives.md](file:///c:/Users/Leo%20Fulgencio/Projects/project-all-blue/docs/development/engineering-directives.md) or [REGRESSIONS.md](file:///c:/Users/Leo%20Fulgencio/Projects/project-all-blue/memories/REGRESSIONS.md)) are valid and do not throw a GitHub 404.
+- **No Naked Placeholders**: Ensure that core markdown files do not have empty "TODO: fill this in later" or placeholder blocks at the top of the document.
+
 ## Version control
 
 - **Branching Strategy**: Each new phase or stream must have its own explicit branching strategy (branching off `develop`).

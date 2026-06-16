@@ -197,3 +197,6 @@ All new and changed code in **All Blue Core** MUST follow [OWASP Top 10](https:/
 3. Confirm no new secrets or storage paths leak to git or client.
 4. Confirm OWASP-relevant tests (pytest for auth boundaries, hash tamper, invalid state) where applicable.
 5. Note known gaps explicitly in feature README **Out of scope** (e.g. “no JWT yet”) rather than silent omission.
+6. Double-check recent commits to ensure absolutely no live API keys, database URLs, or staging credentials are committed (Stray Secrets).
+7. Verify all document links (e.g., in READMEs/manuals pointing to other project files) are valid and do not throw a GitHub 404 (Dead Document Links).
+8. Ensure no core markdown files have empty "TODO: fill this in later" or placeholder blocks at the top of the file (No Naked Placeholders).
