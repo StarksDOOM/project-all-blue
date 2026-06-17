@@ -4,11 +4,14 @@ Canonical copy for agents and reviewers. Full operating manual (committed): **[a
 
 Applies to `apps/api-fastapi/`, `apps/storefront-next/`, `.spec-kit/`, and `docs/features/`.
 
-## Code intelligence (default: CRG)
+## Code intelligence & Token Optimization (default: CRG)
 
 **Default tool:** [code-review-graph (CRG)](code-review-graph.md) — token-minimal reviews via MCP (`get_minimal_context`, `detect_changes`, `get_impact_radius`). Do not paste whole repos or large `GRAPH_REPORT` dumps into chat unless the user asks.
 
-**Agent duty:** Before large refactors or cross-module reviews, use CRG MCP tools (or `code-review-graph detect-changes --brief`) and read only impacted files. Physical verification still requires tests and `.spec-kit/` specs.
+**Agent duty & Token Optimization:**
+- **CRG-First Rule**: All agents MUST use the local CRG index for codebase traversal, import mapping, and boundary detection. Avoid global/repository-wide `grep` searches unless the graph cannot resolve file connections.
+- **Targeted Reading**: When viewing files, always specify line ranges (`StartLine`/`EndLine` parameters in `view_file`) returned by graph queries instead of reading whole source files.
+- Before large refactors or cross-module reviews, use CRG MCP tools (or `code-review-graph detect-changes --brief`) and read only impacted files. Physical verification still requires tests and `.spec-kit/` specs.
 
 **Autonomous refresh (no user prompt):** The agent MUST refresh the graph before relying on it—run `C:\Python313\python.exe -m code_review_graph update` from the repo root on each session or before MCP/detect-changes; run `build` when `status` reports a branch mismatch, after rebase/merge, or when the index is missing/stale. Do not ask permission to update/build. See `Agents.md` § Code-review-graph.
 
@@ -197,3 +200,6 @@ All new and changed code in **All Blue Core** MUST follow [OWASP Top 10](https:/
 3. Confirm no new secrets or storage paths leak to git or client.
 4. Confirm OWASP-relevant tests (pytest for auth boundaries, hash tamper, invalid state) where applicable.
 5. Note known gaps explicitly in feature README **Out of scope** (e.g. “no JWT yet”) rather than silent omission.
+6. Double-check recent commits to ensure absolutely no live API keys, database URLs, or staging credentials are committed (Stray Secrets).
+7. Verify all document links (e.g., in READMEs/manuals pointing to other project files) are valid and do not throw a GitHub 404 (Dead Document Links).
+8. Ensure no core markdown files have empty "TODO: fill this in later" or placeholder blocks at the top of the file (No Naked Placeholders).
