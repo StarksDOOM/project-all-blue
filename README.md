@@ -61,6 +61,19 @@ Root `AGENTS.md` may exist locally for assistants; canonical tracked policy is u
 
 ---
 
+## Agentic workflows & subagents
+
+This project uses a suite of specialized, token-efficient subagents to automate task tracking, implementation, pre-commit safety checks, and code reviews:
+
+- **[Subagents Manual](docs/development/subagents_manual.md)**: Guides the invocation, operational prompts, and best practices for all defined agents.
+- **Subagents**:
+  - `issue-monitor`: Automatically scans open issues, parses task checklists, and updates/closes them based on local git history.
+  - `feature-developer`: Implements spec-locked tasks in Python (OOP + PEP 257) or TypeScript, utilizing the `code-review-graph` (CRG) index to read targeted line ranges.
+  - `regression-checker`: Pre-commit safety checker verifying secret leaks, dead document links, and naked placeholders.
+  - `code-reviewer`: Analyzes the impact radius of code changes and audits security posture (OWASP) using structural CRG queries.
+
+---
+
 ## License / distribution
 
 Private repository. Do not publish implementation details from this codebase without explicit approval.
