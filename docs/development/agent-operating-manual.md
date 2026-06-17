@@ -84,9 +84,12 @@ To prevent security leaks, broken documentation, and incomplete work, the Agent 
 - Chunk commits into **small, atomic units** after tests + user approval (per the "Small commits rule" in Agents.md — one focused change per commit, no large bundles).
 - **Clean tree before merge** — `git status` must be clean immediately before `git merge`.
 
-## Code-review-graph (CRG)
+## Code-review-graph (CRG) & Token Optimization
 
 See `code-review-graph.md`. Run `code_review_graph update` (or `build` when stale) without asking the user.
+
+**CRG-First Search Constraint (ZERO-TOLERANCE)**:
+To minimize token consumption and bandwidth, all agents MUST use the local CRG index for codebase traversal, import resolution, and dependency mapping. Avoid global or repository-wide `grep` searches unless graph relations cannot resolve file boundaries. Reading files must target specific line ranges (`view_file` with `StartLine`/`EndLine`) returned by graph queries instead of loading whole files.
 
 ## Security — OWASP
 
